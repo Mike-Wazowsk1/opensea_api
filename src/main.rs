@@ -323,9 +323,8 @@ async fn get_nft_by_address(address: web::Path<String>) -> impl Responder {
 
     // Create an HTTP provider
     let provider = Provider::<Http>::try_from(MATICURL).unwrap();
-    let key = env::var("PRIVATE_KEY");
-    println!("{:?}",key);
-    let wallet: LocalWallet = "key"
+    let key: Result<String, env::VarError> = env::var("PRIVATE_KEY").unwrap();
+    let wallet: LocalWallet = key
         .parse::<LocalWallet>()
         .unwrap()
         .with_chain_id(Chain::Moonbeam);
