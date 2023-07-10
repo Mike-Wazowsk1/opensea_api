@@ -16,6 +16,7 @@ use std::sync::Arc;
 use std::time::Instant;
 use std::{collections::HashMap, error::Error};
 
+
 type Client = SignerMiddleware<Provider<Http>, Wallet<k256::ecdsa::SigningKey>>;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -322,8 +323,9 @@ async fn get_nft_by_address(address: web::Path<String>) -> impl Responder {
 
     // Create an HTTP provider
     let provider = Provider::<Http>::try_from(MATICURL).unwrap();
-    let key = env::var("PRIVATE_KEY").unwrap();
-    let wallet: LocalWallet = key
+    let key = env::var("PRIVATE_KEY");
+    println!("{:?}",key);
+    let wallet: LocalWallet = "key"
         .parse::<LocalWallet>()
         .unwrap()
         .with_chain_id(Chain::Moonbeam);
@@ -432,18 +434,23 @@ async fn get_owners() -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    dotenv().ok();
+    let key = env::var("SUKA");
+    println!("{:?}",key);
+
     HttpServer::new(|| {
         App::new()
             .service(get_nfts)
             .service(get_nft_by_address)
             .service(get_owners)
+            .service(init_db)
     })
     .bind("0.0.0.0:8080")?
     .run()
     .await
 }
 
-#[allow(dead_code)]
+#[get("/init_db")]
 fn init_db() {
     let result: Vec<TokenLocal> = vec![
         TokenLocal {
