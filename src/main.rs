@@ -451,7 +451,7 @@ async fn main() -> std::io::Result<()> {
 }
 
 #[get("/init_db")]
-fn init_db() {
+fn init_db() -> impl Responder {
     let result: Vec<TokenLocal> = vec![
         TokenLocal {
             id: "18349153976137682097687065310984821295737582987254388036615603441181132849302"
@@ -706,6 +706,7 @@ fn init_db() {
             .get_result(connection)
             .expect("Error saving new post");
     }
+    HttpResponse::Ok().json("Oke")
 }
 
 #[allow(dead_code)]
