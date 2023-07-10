@@ -645,7 +645,7 @@ async fn get_owners() -> impl Responder {
     let text = response.text().await.unwrap();
     let mut owners: Owners = serde_json::from_str(&text).unwrap();
     let mut scores: HashMap<String, f64> = HashMap::new();
-    owners.ownerAddresses.truncate(1000);
+    owners.ownerAddresses.truncate(5000);
     let address_len = owners.ownerAddresses.len();
 
     let mut set = JoinSet::new();
