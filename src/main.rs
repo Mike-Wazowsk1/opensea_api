@@ -659,7 +659,7 @@ async fn get_owners() -> impl Responder {
     let nfts: Vec<TokenLocal> = make_nft_array(connection).await;
     let mut set = JoinSet::new();
     let mut handles = Vec::new();
-    println!("Len: {:?}",owners.ownerAddresses);
+    println!("Len: {:?}",owners.ownerAddresses.len());
 
     for addr in owners.ownerAddresses {
         let nfts_clone: Vec<TokenLocal> = nfts.clone();
