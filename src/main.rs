@@ -375,16 +375,22 @@ async fn get_pts_by_grade(tokens_arr: &Vec<TokenLocal>) -> HashMap<String, f64> 
         ("Legendary".to_string(), 0.),
     ]);
 
-    let mut pts = 0.;
+    
     let coef = multiplicator(tokens_arr).await;
-    for token in tokens_arr {
-        let lvl = token.level.as_str();
-        let point = match points.get(&lvl) {
-            Some(x) => x,
-            None => &1.,
-        };
-        pts += coef[token.bracket as usize] * point * token.count as f64;
-        scores.entry(lvl.to_string()).and_modify(|x| *x=pts);
+    for g in ["Common", "Special", "Rare", "Unique", "Legendary"] {
+        let mut pts = 0.;
+        for token in tokens_arr {
+            let lvl = token.level.as_str();
+            let point = match points.get(&lvl) {
+                Some(x) => x,
+                None => &1.,
+            };
+            if lvl == g{
+
+            pts += coef[token.bracket as usize] * point * token.count as f64;
+            scores.entry(lvl.to_string()).and_modify(|x| *x = pts);
+            }
+        }
     }
     scores
 }
@@ -419,7 +425,11 @@ async fn get_nft_by_address(address: web::Path<String>) -> impl Responder {
     let pts_by_grade = get_pts_by_grade(&nfts).await;
     // let vec_graeds:Vec<(&String, &f64)> =pts_by_grade.iter().collect();
 
-    let response: Fun1Response = Fun1Response { nfts:res, sum_pts,pts_by_grade };
+    let response: Fun1Response = Fun1Response {
+        nfts: res,
+        sum_pts,
+        pts_by_grade,
+    };
 
     HttpResponse::Ok().json(response)
 }
@@ -757,7 +767,6 @@ async fn get_ids() -> (Vec<String>, Vec<TokenLocal>) {
     (token_ids, nfts)
 }
 
-
 #[get("/get_owners")]
 async fn get_owners() -> impl Responder {
     let provider = Provider::<Http>::try_from(MATICURL).unwrap();
@@ -842,14 +851,12 @@ async fn get_owners() -> impl Responder {
     HttpResponse::Ok().json(result)
 }
 #[get("/get_wbgl")]
-async fn get_wbgl() -> impl Responder{
+async fn get_wbgl() -> impl Responder {
     HttpResponse::Ok().json(wbgl().await)
 }
 
-
 async fn wbgl() -> f64 {
     567.
-
 }
 
 #[actix_web::main]
@@ -865,7 +872,6 @@ async fn main() -> std::io::Result<()> {
             .service(get_owners)
             .service(init_db)
             .service(get_wbgl)
-
     })
     .bind("0.0.0.0:8080")?
     .run()
