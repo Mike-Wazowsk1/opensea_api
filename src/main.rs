@@ -654,7 +654,7 @@ async fn get_owners() -> impl Responder {
         .unwrap()
         .with_chain_id(Chain::Moonbeam);
     let client = SignerMiddleware::new(provider.clone(), wallet.clone());
-    owners.ownerAddresses.truncate(10000);
+    // owners.ownerAddresses.truncate(10000);
     let connection = &mut establish_connection().await;
     let nfts: Vec<TokenLocal> = make_nft_array(connection).await;
     let mut set = JoinSet::new();
