@@ -2,7 +2,8 @@
 
 diesel::table! {
     tokens (id) {
-        id -> Text,
+        index -> Int4,
+        id -> Nullable<Text>,
         count -> Nullable<Int4>,
         bracket -> Nullable<Int4>,
         level -> Nullable<Text>,

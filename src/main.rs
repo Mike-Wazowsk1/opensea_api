@@ -15,6 +15,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Instant;
 use std::{collections::HashMap, error::Error};
+use tokio::task::JoinSet;
 
 type Client = SignerMiddleware<Provider<Http>, Wallet<k256::ecdsa::SigningKey>>;
 
@@ -40,83 +41,6 @@ abigen!(
     event_derives(serde::Deserialize, serde::Serialize)
 );
 
-async fn get_counts(
-    client: &Client,
-    contract_addr: &H160,
-    address: &web::Path<String>,
-    nfts: &Vec<TokenLocal>,
-) -> Vec<U256> {
-    let contract = NftContract::new(contract_addr.clone(), Arc::new(client.clone()));
-    let mut ids: Vec<U256> = vec![];
-    let mut addresses: Vec<Address> = vec![];
-
-    for tok in nfts {
-        let tmp = match U256::from_str_radix(&tok.id, 10) {
-            Ok(x) => {
-                println!("All Ok! {:?} {:?}", x, tok);
-                x
-            }
-            Err(_e) => {
-                println!("{}", _e);
-                continue;
-            }
-        };
-        ids.push(tmp);
-    }
-    for _i in 0..ids.len() {
-        let tmp = match Address::from_str(&address) {
-            Ok(x) => x,
-            Err(x) => {
-                println!("Error: {}", x);
-                continue;
-            }
-        };
-        addresses.push(tmp);
-    }
-
-    let balance = match contract.balance_of_batch(addresses, ids).call().await {
-        Ok(x) => x,
-        Err(_x) => return Vec::new(),
-    };
-    balance
-}
-async fn get_counts_local(
-    client: &Client,
-    contract_addr: &H160,
-    address: &String,
-    nfts: &Vec<TokenLocal>,
-) -> Vec<U256> {
-    let contract = NftContract::new(contract_addr.clone(), Arc::new(client.clone()));
-    let mut ids: Vec<U256> = vec![];
-    let mut addresses: Vec<Address> = vec![];
-
-    for tok in nfts {
-        let tmp = match U256::from_str_radix(&tok.id, 10) {
-            Ok(x) => x,
-            Err(_e) => {
-                println!("{}", _e);
-                continue;
-            }
-        };
-        ids.push(tmp);
-    }
-    for _i in 0..ids.len() {
-        let tmp = match Address::from_str(&address) {
-            Ok(x) => x,
-            Err(x) => {
-                println!("Error: {}", x);
-                continue;
-            }
-        };
-        addresses.push(tmp);
-    }
-    let balance = match contract.balance_of_batch(addresses, ids).call().await {
-        Ok(x) => x,
-        Err(_x) => return Vec::new(),
-    };
-    balance
-}
-
 #[derive(Debug, Deserialize, Serialize)]
 struct NFTResponse {
     nfts: Vec<NFT>,
@@ -124,6 +48,7 @@ struct NFTResponse {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 
 struct TokenLocal {
+    index: i32,
     count: i32,
     id: String,
     bracket: i32,
@@ -166,7 +91,17 @@ struct Tx {
 
 #[derive(Debug, Deserialize, Serialize)]
 struct Owners {
-    ownerAddresses: Vec<Option<String>>,
+    #[serde(rename = "ownerAddresses")]
+    owner_addresses: Vec<Option<String>>,
+    #[serde(rename = "pageKey")]
+    page_key: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct OwnersResponse {
+    owners: Vec<Option<String>>,
+    #[serde(rename = "pageKey")]
+    page_key: Option<String>,
 }
 
 const MATICURL: &str = "https://polygon-rpc.com";
@@ -183,6 +118,13 @@ struct Fun1Response {
     pts: f64,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+struct Fun2Response {
+    address: String,
+    score: f64,
+    reward: f64,
+}
+
 pub async fn establish_connection() -> PgConnection {
     dotenv().ok();
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
@@ -195,7 +137,8 @@ async fn make_nft_array(connection: &mut PgConnection) -> Vec<TokenLocal> {
     let db: Vec<Token> = tokens.load(connection).expect("Need data");
     for l in db {
         let tmp = TokenLocal {
-            id: l.id,
+            index: l.index,
+            id: l.id.unwrap(),
             bracket: l.bracket.unwrap(),
             level: l.level.unwrap(),
             count: l.count.unwrap(),
@@ -228,7 +171,108 @@ async fn make_nft_array(connection: &mut PgConnection) -> Vec<TokenLocal> {
     result
 }
 
-async fn get_tmp() -> Result<NFTResponse, Box<dyn Error>> {
+async fn get_counts(
+    client: &Client,
+    contract_addr: &H160,
+    address: &web::Path<String>,
+    nfts: &mut Vec<TokenLocal>,
+) -> Vec<U256> {
+    let contract = NftContract::new(contract_addr.clone(), Arc::new(client.clone()));
+    let mut ids: Vec<U256> = vec![];
+    let mut addresses: Vec<Address> = vec![];
+
+    for tok in &mut *nfts {
+        let tmp = match U256::from_str_radix(&tok.id, 10) {
+            Ok(x) => {
+                println!("All Ok! {:?} {:?}", x, tok);
+                x
+            }
+            Err(_e) => {
+                println!("Can't parse:{}", _e);
+                continue;
+            }
+        };
+        ids.push(tmp);
+    }
+    for _i in 0..ids.len() {
+        let tmp = match Address::from_str(&address) {
+            Ok(x) => x,
+            Err(x) => {
+                println!("Error: {}", x);
+                continue;
+            }
+        };
+        addresses.push(tmp);
+    }
+
+    let balance = match contract
+        .balance_of_batch(addresses, ids.clone())
+        .call()
+        .await
+    {
+        Ok(x) => x,
+        Err(_x) => return Vec::new(),
+    };
+    for i in 0..ids.len() {
+        for j in 0..nfts.len() {
+            if ids[i].to_string() == nfts[j].id {
+                nfts[j].count = balance[i].as_u32() as i32;
+            }
+        }
+    }
+    balance
+}
+
+async fn get_counts_local(
+    client: &Client,
+    contract_addr: &H160,
+    address: &String,
+    nfts: &mut Vec<TokenLocal>,
+) -> Vec<U256> {
+    let contract = NftContract::new(contract_addr.clone(), Arc::new(client.clone()));
+    let mut ids: Vec<U256> = vec![];
+    let mut addresses: Vec<Address> = vec![];
+
+    for tok in &mut *nfts {
+        let tmp = match U256::from_str_radix(&tok.id, 10) {
+            Ok(x) => x,
+            Err(_e) => {
+                println!("Can't parse: {}", _e);
+                continue;
+            }
+        };
+        ids.push(tmp);
+    }
+    for _i in 0..ids.len() {
+        let tmp = match Address::from_str(&address) {
+            Ok(x) => x,
+            Err(x) => {
+                println!("Error: {}", x);
+                continue;
+            }
+        };
+        addresses.push(tmp);
+    }
+
+    let balance = match contract
+        .balance_of_batch(addresses, ids.clone())
+        .call()
+        .await
+    {
+        Ok(x) => x,
+        Err(_x) => return Vec::new(),
+    };
+    for i in 0..ids.len() {
+        for j in 0..nfts.len() {
+            if ids[i].to_string() == nfts[j].id {
+                nfts[j].count = balance[i].as_u32() as i32;
+            }
+        }
+    }
+    balance
+}
+
+async fn get_collection_from_opensea() -> Result<NFTResponse, Box<dyn Error>> {
     // let proxy = reqwest::Proxy::http("http://202.40.177.69:80")?;
     let client = reqwest::Client::builder().build()?;
 
@@ -248,7 +292,7 @@ async fn get_tmp() -> Result<NFTResponse, Box<dyn Error>> {
 
 #[get("/info")]
 async fn get_nfts() -> impl Responder {
-    match get_tmp().await {
+    match get_collection_from_opensea().await {
         Ok(nfts) => HttpResponse::Ok().json(nfts),
         Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
     }
@@ -336,10 +380,10 @@ async fn get_nft_by_address(address: web::Path<String>) -> impl Responder {
     let contract_addr = Address::from_str("0x2953399124F0cBB46d2CbACD8A89cF0599974963").unwrap();
     // let client = ethers::etherscan::Client::new(Chain::Polygon, MATICURL).unwrap();
 
-    let balance = get_counts(&client, &contract_addr, &address, &nfts).await;
-    for i in 0..nfts.len() {
-        nfts[i].count = balance[i].as_u32() as i32;
-    }
+    let _balance = get_counts(&client, &contract_addr, &address, &mut nfts).await;
+    // for i in 0..nfts.len() {
+    //     nfts[i].count = balance[i].as_u32() as i32;
+    // }
     let pts = get_pts(&nfts).await;
 
     let response: Fun1Response = Fun1Response { nfts, pts };
@@ -349,9 +393,9 @@ async fn get_nft_by_address(address: web::Path<String>) -> impl Responder {
 //
 async fn get_nft_by_address_local(
     client: &SignerMiddleware<Provider<Http>, Wallet<k256::ecdsa::SigningKey>>,
-    mut nfts: Vec<TokenLocal>,
+    nfts: &mut Vec<TokenLocal>,
     address: &String,
-) -> (Vec<TokenLocal>, f64) {
+) -> f64 {
     // println!("Run Get Nft by adress");
     // Specify the URL of the Ethereum node you want to connect to
 
@@ -362,21 +406,22 @@ async fn get_nft_by_address_local(
     let contract_addr = Address::from_str("0x2953399124F0cBB46d2CbACD8A89cF0599974963").unwrap();
     // let client = ethers::etherscan::Client::new(Chain::Polygon, MATICURL).unwrap();
 
-    let balance = get_counts_local(&client, &contract_addr, &address, &nfts).await;
-    if balance.len() != nfts.len() {
-        return (Vec::new(), -100.);
-    }
-    for i in 0..nfts.len() {
-        nfts[i].count = balance[i].as_u32() as i32;
-    }
-    let pts = get_pts(&nfts).await;
-    (nfts, pts)
+    let _balance = get_counts_local(&client, &contract_addr, &address, nfts).await;
+    // if balance.len() != nfts.len() {
+    //     return  -100.;
+    // }
+    // for i in 0..nfts.len() {
+    //     nfts[i].count = balance[i].as_u32() as i32;
+    // }
+    let pts: f64 = get_pts(&nfts).await;
+    pts
 }
 
 #[get("/init_db")]
 async fn init_db() -> impl Responder {
     let result: Vec<TokenLocal> = vec![
         TokenLocal {
+            index: 0,
             id: "18349153976137682097687065310984821295737582987254388036615603441181132849302"
                 .to_string(),
             count: 0,
@@ -384,6 +429,7 @@ async fn init_db() -> impl Responder {
             level: "Common".to_string(),
         },
         TokenLocal {
+            index: 1,
             id: "18349153976137682097687065310984821295737582987254388036615603429086504943816"
                 .to_string(),
             count: 0,
@@ -391,6 +437,7 @@ async fn init_db() -> impl Responder {
             level: "Common".to_string(),
         },
         TokenLocal {
+            index: 2,
             id: "18349153976137682097687065310984821295737582987254388036615603443380156104854"
                 .to_string(),
             count: 0,
@@ -398,6 +445,7 @@ async fn init_db() -> impl Responder {
             level: "Common".to_string(),
         },
         TokenLocal {
+            index: 3,
             id: "18349153976137682097687065310984821295737582987254388036615603437882597965974"
                 .to_string(),
             count: 0,
@@ -405,6 +453,7 @@ async fn init_db() -> impl Responder {
             level: "Common".to_string(),
         },
         TokenLocal {
+            index: 4,
             id: "18349153976137682097687065310984821295737582987254388036615603436783086338198"
                 .to_string(),
             count: 0,
@@ -412,6 +461,7 @@ async fn init_db() -> impl Responder {
             level: "Common".to_string(),
         },
         TokenLocal {
+            index: 5,
             id: "18349153976137682097687065310984821295737582987254388036615603442280644477078"
                 .to_string(),
             count: 0,
@@ -419,12 +469,14 @@ async fn init_db() -> impl Responder {
             level: "Common".to_string(),
         },
         TokenLocal {
-            id: "".to_string(),
+            index: 6,
+            id: "NO_VALUE".to_string(),
             count: 0,
             bracket: 1,
             level: "Common".to_string(),
         },
         TokenLocal {
+            index: 7,
             id: "18349153976137682097687065310984821295737582987254388036615603418091388666006"
                 .to_string(),
             count: 0,
@@ -432,6 +484,7 @@ async fn init_db() -> impl Responder {
             level: "Common".to_string(),
         },
         TokenLocal {
+            index: 8,
             id: "18349153976137682097687065310984821295737582987254388036615603451076737499211"
                 .to_string(),
             count: 0,
@@ -439,6 +492,7 @@ async fn init_db() -> impl Responder {
             level: "Special".to_string(),
         },
         TokenLocal {
+            index: 9,
             id: "18349153976137682097687065310984821295737582987254388036615603432385039827019"
                 .to_string(),
             count: 0,
@@ -446,6 +500,7 @@ async fn init_db() -> impl Responder {
             level: "Special".to_string(),
         },
         TokenLocal {
+            index: 10,
             id: "18349153976137682097687065310984821295737582987254388036615603444479667732555"
                 .to_string(),
             count: 0,
@@ -453,171 +508,174 @@ async fn init_db() -> impl Responder {
             level: "Special".to_string(),
         },
         TokenLocal {
-            id: "1".to_string(),
+            index: 11,
+            id: "NO_VALUE".to_string(),
             count: 0,
             bracket: 3,
             level: "Special".to_string(),
         },
         TokenLocal {
+            index: 12,
             id: "18349153976137682097687065310984821295737582987254388036615603445579179360331"
                 .to_string(),
             count: 0,
             bracket: 3,
-
             level: "Special".to_string(),
         },
         TokenLocal {
-            id: "2".to_string(),
+            index: 13,
+            id: "NO_VALUE".to_string(),
             count: 0,
             bracket: 3,
-
             level: "Special".to_string(),
         },
         TokenLocal {
-            id: "3".to_string(),
+            index: 14,
+            id: "NO_VALUE".to_string(),
             count: 0,
             bracket: 4,
-
             level: "Special".to_string(),
         },
         TokenLocal {
+            index: 15,
             id: "18349153976137682097687065310984821295737582987254388036615603452176249126987"
                 .to_string(),
             count: 0,
             bracket: 4,
-
             level: "Common".to_string(),
         },
         TokenLocal {
-            id: "4".to_string(),
+            index: 16,
+            id: "NO_VALUE".to_string(),
             count: 0,
             bracket: 4,
-
             level: "Special".to_string(),
         },
         TokenLocal {
-            id: "5".to_string(),
+            index: 17,
+            id: "NO_VALUE".to_string(),
             count: 0,
             bracket: 5,
-
             level: "Special".to_string(),
         },
         TokenLocal {
-            id: "6".to_string(),
+            index: 18,
+            id: "NO_VALUE".to_string(),
             count: 0,
             bracket: 5,
-
             level: "Special".to_string(),
         },
         TokenLocal {
-            id: "7".to_string(),
+            index: 19,
+            id: "NO_VALUE".to_string(),
             count: 0,
             bracket: 5,
-
             level: "Special".to_string(),
         },
         TokenLocal {
-            id: "8".to_string(),
+            index: 20,
+            id: "NO_VALUE".to_string(),
             count: 0,
             bracket: 6,
-
             level: "Special".to_string(),
         },
         TokenLocal {
-            id: "9".to_string(),
+            index: 21,
+            id: "NO_VALUE".to_string(),
             count: 0,
             bracket: 6,
-
             level: "Special".to_string(),
         },
         TokenLocal {
-            id: "0".to_string(),
+            index: 22,
+            id: "NO_VALUE".to_string(),
             count: 0,
             bracket: 6,
-
             level: "Special".to_string(),
         },
         TokenLocal {
+            index: 23,
             id: "18349153976137682097687065310984821295737582987254388036615603420290411921433"
                 .to_string(),
             count: 0,
             bracket: 7,
-
             level: "Rare".to_string(),
         },
         TokenLocal {
-            id: "11".to_string(),
+            index: 24,
+            id: "NO_VALUE".to_string(),
             count: 0,
             bracket: 7,
-
             level: "Rare".to_string(),
         },
         TokenLocal {
+            index: 25,
             id: "18349153976137682097687065310984821295737582987254388036615603448877714243609"
                 .to_string(),
             count: 0,
             bracket: 8,
-
             level: "Rare".to_string(),
         },
         TokenLocal {
-            id: "12".to_string(),
+            index: 26,
+            id: "NO_VALUE".to_string(),
             count: 0,
             bracket: 8,
-
             level: "Rare".to_string(),
         },
         TokenLocal {
+            index: 27,
             id: "18349153976137682097687065310984821295737582987254388036615603446678690988057"
                 .to_string(),
             count: 0,
             bracket: 9,
-
             level: "Rare".to_string(),
         },
         TokenLocal {
+            index: 28,
             id: "18349153976137682097687065310984821295737582987254388036615603449977225871385"
                 .to_string(),
             count: 0,
             bracket: 9,
-
             level: "Rare".to_string(),
         },
         TokenLocal {
+            index: 29,
             id: "18349153976137682097687065310984821295737582987254388036615603447778202615833"
                 .to_string(),
             count: 0,
             bracket: 10,
-
             level: "Rare".to_string(),
         },
         TokenLocal {
-            id: "13".to_string(),
+            index: 30,
+            id: "NO_VALUE".to_string(),
             count: 0,
             bracket: 10,
-
             level: "Rare".to_string(),
         },
         TokenLocal {
-            id: "14".to_string(),
+            index: 31,
+            id: "NO_VALUE".to_string(),
             count: 0,
             bracket: 11,
-
             level: "Rare".to_string(),
         },
         TokenLocal {
+            index: 32,
             id: "18349153976137682097687065310984821295737582987254388036615603435683574710297"
                 .to_string(),
             count: 0,
             bracket: 11,
-
             level: "Rare".to_string(),
         },
     ];
+
     let connection = &mut establish_connection().await;
 
     for token in &result {
         let new_token = NewToken {
+            index: &token.index,
             id: &token.id,
             count: &token.count,
             bracket: &token.bracket,
@@ -635,18 +693,40 @@ async fn init_db() -> impl Responder {
 
 // use tokio::task;
 
-use tokio::task::JoinSet;
-#[get("/owners")]
-async fn get_owners() -> impl Responder {
-    let start_time = Instant::now();
-    let url = "https://polygon-mainnet.g.alchemy.com/nft/v2/lUgTmkM2_xJvUIF0dB1iFt0IQrqd4Haw/getOwnersForCollection?contractAddress=0x2953399124F0cBB46d2CbACD8A89cF0599974963&withTokenBalances=false";
-    let response = reqwest::get(url).await.unwrap();
-    let elapsed_time = start_time.elapsed();
-    let text = response.text().await.unwrap();
-    println!("REspone {}", elapsed_time.as_secs_f64());
+async fn get_ids() -> (Vec<String>, Vec<TokenLocal>) {
+    let mut blocked = false;
+    let mut token_ids = Vec::new();
+    let connection = &mut establish_connection().await;
+    let nfts: Vec<TokenLocal> = make_nft_array(connection).await;
 
-    let mut owners: Owners = serde_json::from_str(&text).unwrap();
-    let mut scores: HashMap<String, f64> = HashMap::new();
+    let nfts_t = match get_collection_from_opensea().await {
+        Ok(x) => x,
+        Err(_x) => {
+            println!("opensead blocked. Get Nfts from db");
+            blocked = true;
+            NFTResponse { nfts: Vec::new() }
+        }
+    };
+    if !blocked {
+        for n in nfts_t.nfts {
+            let token_id = match n.identifier {
+                Some(x) => x,
+                None => continue,
+            };
+            token_ids.push(token_id);
+        }
+    } else {
+        for n in &nfts {
+            token_ids.push((*n.id).to_string());
+        }
+    }
+
+    (token_ids, nfts)
+}
+
+
+#[get("/get_owners")]
+async fn get_owners() -> impl Responder {
     let provider = Provider::<Http>::try_from(MATICURL).unwrap();
     let key = env::var("PRIVATE_KEY").unwrap();
     let wallet: LocalWallet = key
@@ -654,48 +734,83 @@ async fn get_owners() -> impl Responder {
         .unwrap()
         .with_chain_id(Chain::Moonbeam);
     let client = SignerMiddleware::new(provider.clone(), wallet.clone());
-    // owners.ownerAddresses.truncate(10000);
-    let connection = &mut establish_connection().await;
-    let nfts: Vec<TokenLocal> = make_nft_array(connection).await;
-    let mut set = JoinSet::new();
-    let mut handles = Vec::new();
-    println!("Len: {:?}",owners.ownerAddresses.len());
 
-    for addr in owners.ownerAddresses {
-        let nfts_clone: Vec<TokenLocal> = nfts.clone();
+    let tup = get_ids().await;
+    let token_ids = tup.0;
+    let mut nfts: Vec<TokenLocal> = tup.1;
+    println!("{:?}", nfts);
 
+    let mut scores = HashMap::new();
+    // let mut set = JoinSet::new();
+    println!("Tokens: {:?}", token_ids);
+
+    for tok in token_ids {
         let client_clone = client.clone();
+        // let scores_clone = scores;
 
-        let handle = set.spawn(async move {
-            let s = match addr {
+        let url = format!(
+                "https://polygon-mainnet.g.alchemy.com/nft/v2/lUgTmkM2_xJvUIF0dB1iFt0IQrqd4Haw/getOwnersForToken?contractAddress=0x2953399124F0cBB46d2CbACD8A89cF0599974963&tokenId={tok}",
+                tok = tok
+            );
+        let resp = reqwest::get(url).await;
+        let tmp_resp = match resp {
+            Ok(x) => x,
+            Err(_x) => panic!("Can't make request to alchemy"),
+        };
+        let resp_text = tmp_resp.text().await.unwrap();
+        println!("tEXT: {}", resp_text);
+
+        let tmp_serde: Result<OwnersResponse, serde_json::Error> = serde_json::from_str(&resp_text);
+        let tmp_owners: OwnersResponse = match tmp_serde {
+            Ok(x) => x,
+            Err(x) => {
+                println!("Err {}", x);
+                OwnersResponse {
+                    owners: Vec::new(),
+                    page_key: Option::None,
+                }
+            }
+        };
+
+        for owner in tmp_owners.owners {
+            let ok_owner = match owner {
                 Some(x) => x,
-                None =>{ 
-                println!("ERROR");
-                "".to_string()
-            },
+                None => continue,
             };
-            let start_time1 = Instant::now();
+            if !scores.contains_key(&ok_owner) {
+                let current_address =
+                    get_nft_by_address_local(&client_clone, &mut nfts, &ok_owner).await;
+                let current_pts = current_address;
+                scores.insert(ok_owner, current_pts);
+            }
+        }
+    }
 
-            let current_tuple = get_nft_by_address_local(&client_clone, nfts_clone, &s).await;
-            (s, current_tuple)
-        });
-        handles.push(handle);
-    }
-    while let Some(res) = set.join_next().await {
-        let (s, current_tuple) = res.unwrap();
-        let pts = current_tuple.1;
-        if pts == -100. {
-            continue;
-        }
-        if pts >= 0.0 {
-            scores.insert(s.to_string(), pts);
-        }
-    }
-    let v:Vec<(&String, &f64)>=scores.iter().collect();
-    println!("Res: {:?}", v.len());
-    let mut sorted_scores: Vec<(&String, &f64)> = v;
+    // println!("Res: {:?}", v.len());
+    // let tmp = scores;
+    println!("Maps {:?} ", scores);
+    let mut sorted_scores: Vec<(&String, &f64)> = scores.iter().collect();
+
     sorted_scores.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
-    HttpResponse::Ok().json(sorted_scores)
+    let mut s = 0.;
+    for st in &sorted_scores {
+        s += st.1;
+    }
+
+    let mut result = Vec::new();
+    for i in 0..sorted_scores.len() {
+        let reward = get_wbgl().await / (s * sorted_scores[i].1);
+        result.push(Fun2Response {
+            address: sorted_scores[i].0.to_string(),
+            score: *sorted_scores[i].1,
+            reward,
+        });
+    }
+    HttpResponse::Ok().json(result)
+}
+
+async fn get_wbgl() -> f64 {
+    567.
 }
 
 #[actix_web::main]
@@ -760,4 +875,67 @@ async fn get_nft(address: &web::Path<String>) -> ScanerResponse {
     }
     result.result = tx_array;
     result
+}
+
+#[allow(dead_code)]
+#[get("/owners")]
+async fn get_owners_old() -> impl Responder {
+    let start_time = Instant::now();
+    let url = "https://polygon-mainnet.g.alchemy.com/nft/v2/lUgTmkM2_xJvUIF0dB1iFt0IQrqd4Haw/getOwnersForCollection?contractAddress=0x2953399124F0cBB46d2CbACD8A89cF0599974963&withTokenBalances=false";
+    let response = reqwest::get(url).await.unwrap();
+    let elapsed_time = start_time.elapsed();
+    let text = response.text().await.unwrap();
+    println!("REspone {}", elapsed_time.as_secs_f64());
+
+    let owners: Owners = serde_json::from_str(&text).unwrap();
+    let mut scores: HashMap<String, f64> = HashMap::new();
+    let provider = Provider::<Http>::try_from(MATICURL).unwrap();
+    let key = env::var("PRIVATE_KEY").unwrap();
+    let wallet: LocalWallet = key
+        .parse::<LocalWallet>()
+        .unwrap()
+        .with_chain_id(Chain::Moonbeam);
+    let client = SignerMiddleware::new(provider.clone(), wallet.clone());
+    // owners.ownerAddresses.truncate(10000);
+    let connection = &mut establish_connection().await;
+    let nfts: Vec<TokenLocal> = make_nft_array(connection).await;
+    let mut set = JoinSet::new();
+    let mut handles = Vec::new();
+    println!("Len: {:?}", owners.owner_addresses.len());
+
+    for addr in owners.owner_addresses {
+        let mut nfts_clone: Vec<TokenLocal> = nfts.clone();
+
+        let client_clone = client.clone();
+
+        let handle = set.spawn(async move {
+            let s = match addr {
+                Some(x) => x,
+                None => {
+                    println!("ERROR");
+                    "".to_string()
+                }
+            };
+
+            let current_tuple = get_nft_by_address_local(&client_clone, &mut nfts_clone, &s).await;
+            (s, current_tuple)
+        });
+        handles.push(handle);
+    }
+    while let Some(res) = set.join_next().await {
+        let (s, current_tuple) = res.unwrap();
+        let pts = current_tuple;
+        if pts == -100. {
+            continue;
+        }
+        if pts >= 0.0 {
+            scores.insert(s.to_string(), pts);
+        }
+    }
+    let v: Vec<(&String, &f64)> = scores.iter().collect();
+    println!("{:?}", scores);
+    println!("Res: {:?}", v.len());
+    let mut sorted_scores: Vec<(&String, &f64)> = v;
+    sorted_scores.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
+    HttpResponse::Ok().json(sorted_scores)
 }
