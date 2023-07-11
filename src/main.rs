@@ -115,7 +115,8 @@ struct ScanerResponse {
 #[derive(Debug, Deserialize, Serialize)]
 struct Fun1Response {
     nfts: Vec<TokenLocal>,
-    pts: f64,
+    sum_pts: f64,
+    pts_by_grade: HashMap<String, f64>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -358,6 +359,35 @@ async fn get_pts(tokens_arr: &Vec<TokenLocal>) -> f64 {
     }
     pts
 }
+async fn get_pts_by_grade(tokens_arr: &Vec<TokenLocal>) -> HashMap<String, f64> {
+    let points: HashMap<&str, f64> = HashMap::from([
+        ("Common", 1.),
+        ("Special", 3.),
+        ("Rare", 7.),
+        ("Unique", 30.),
+        ("Legendary", 50.),
+    ]);
+    let mut scores: HashMap<String, f64> = HashMap::from([
+        ("Common".to_string(), 0.0),
+        ("Special".to_string(), 0.),
+        ("Rare".to_string(), 0.),
+        ("Unique".to_string(), 0.),
+        ("Legendary".to_string(), 0.),
+    ]);
+
+    let mut pts = 0.;
+    let coef = multiplicator(tokens_arr).await;
+    for token in tokens_arr {
+        let lvl = token.level.as_str();
+        let point = match points.get(&lvl) {
+            Some(x) => x,
+            None => &1.,
+        };
+        pts += coef[token.bracket as usize] * point * token.count as f64;
+        scores.entry(lvl.to_string()).and_modify(|x| *x=pts);
+    }
+    scores
+}
 
 #[get("/nft/{address}")]
 async fn get_nft_by_address(address: web::Path<String>) -> impl Responder {
@@ -384,9 +414,12 @@ async fn get_nft_by_address(address: web::Path<String>) -> impl Responder {
     // for i in 0..nfts.len() {
     //     nfts[i].count = balance[i].as_u32() as i32;
     // }
-    let pts = get_pts(&nfts).await;
+    let sum_pts = get_pts(&nfts).await;
+    let res = nfts.clone();
+    let pts_by_grade = get_pts_by_grade(&nfts).await;
+    // let vec_graeds:Vec<(&String, &f64)> =pts_by_grade.iter().collect();
 
-    let response: Fun1Response = Fun1Response { nfts, pts };
+    let response: Fun1Response = Fun1Response { nfts:res, sum_pts,pts_by_grade };
 
     HttpResponse::Ok().json(response)
 }
@@ -542,7 +575,7 @@ async fn init_db() -> impl Responder {
                 .to_string(),
             count: 0,
             bracket: 4,
-            level: "Common".to_string(),
+            level: "Special".to_string(),
         },
         TokenLocal {
             index: 16,
@@ -799,7 +832,7 @@ async fn get_owners() -> impl Responder {
 
     let mut result = Vec::new();
     for i in 0..sorted_scores.len() {
-        let reward = get_wbgl().await / (s * sorted_scores[i].1);
+        let reward = wbgl().await / (s * sorted_scores[i].1);
         result.push(Fun2Response {
             address: sorted_scores[i].0.to_string(),
             score: *sorted_scores[i].1,
@@ -808,9 +841,15 @@ async fn get_owners() -> impl Responder {
     }
     HttpResponse::Ok().json(result)
 }
+#[get("/get_wbgl")]
+async fn get_wbgl() -> impl Responder{
+    HttpResponse::Ok().json(wbgl().await)
+}
 
-async fn get_wbgl() -> f64 {
+
+async fn wbgl() -> f64 {
     567.
+
 }
 
 #[actix_web::main]
@@ -825,6 +864,8 @@ async fn main() -> std::io::Result<()> {
             .service(get_nft_by_address)
             .service(get_owners)
             .service(init_db)
+            .service(get_wbgl)
+
     })
     .bind("0.0.0.0:8080")?
     .run()
