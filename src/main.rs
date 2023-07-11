@@ -16,7 +16,6 @@ use std::sync::Arc;
 use std::time::Instant;
 use std::{collections::HashMap, error::Error};
 
-
 type Client = SignerMiddleware<Provider<Http>, Wallet<k256::ecdsa::SigningKey>>;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -77,7 +76,7 @@ async fn get_counts(
 
     let balance = match contract.balance_of_batch(addresses, ids).call().await {
         Ok(x) => x,
-        Err(x) => return Vec::new(),
+        Err(_x) => return Vec::new(),
     };
     balance
 }
@@ -113,7 +112,7 @@ async fn get_counts_local(
     }
     let balance = match contract.balance_of_batch(addresses, ids).call().await {
         Ok(x) => x,
-        Err(x) => return Vec::new(),
+        Err(_x) => return Vec::new(),
     };
     balance
 }
@@ -122,7 +121,7 @@ async fn get_counts_local(
 struct NFTResponse {
     nfts: Vec<NFT>,
 }
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 
 struct TokenLocal {
     count: i32,
@@ -184,16 +183,15 @@ struct Fun1Response {
     pts: f64,
 }
 
-pub fn establish_connection() -> PgConnection {
+pub async fn establish_connection() -> PgConnection {
     dotenv().ok();
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     PgConnection::establish(&database_url)
         .unwrap_or_else(|_| panic!("Error connecting to {}", database_url))
 }
 
-async fn make_nft_array() -> Vec<TokenLocal> {
+async fn make_nft_array(connection: &mut PgConnection) -> Vec<TokenLocal> {
     let mut result: Vec<TokenLocal> = vec![];
-    let connection = &mut establish_connection();
     let db: Vec<Token> = tokens.load(connection).expect("Need data");
     for l in db {
         let tmp = TokenLocal {
@@ -256,7 +254,7 @@ async fn get_nfts() -> impl Responder {
     }
 }
 
-fn multiplicator(tokens_arr: &Vec<TokenLocal>) -> Vec<f64> {
+async fn multiplicator(tokens_arr: &Vec<TokenLocal>) -> Vec<f64> {
     let mut multiply = vec![1.; 12];
     let mut cur = 0;
     //Common
@@ -295,7 +293,7 @@ fn multiplicator(tokens_arr: &Vec<TokenLocal>) -> Vec<f64> {
     multiply
 }
 
-fn get_pts(tokens_arr: &Vec<TokenLocal>) -> f64 {
+async fn get_pts(tokens_arr: &Vec<TokenLocal>) -> f64 {
     let points: HashMap<&str, f64> = HashMap::from([
         ("Common", 1.),
         ("Special", 3.),
@@ -305,7 +303,7 @@ fn get_pts(tokens_arr: &Vec<TokenLocal>) -> f64 {
     ]);
 
     let mut pts = 0.;
-    let coef = multiplicator(tokens_arr);
+    let coef = multiplicator(tokens_arr).await;
     for token in tokens_arr {
         let lvl = token.level.as_str();
         let point = match points.get(&lvl) {
@@ -319,18 +317,21 @@ fn get_pts(tokens_arr: &Vec<TokenLocal>) -> f64 {
 
 #[get("/nft/{address}")]
 async fn get_nft_by_address(address: web::Path<String>) -> impl Responder {
+    let connection = &mut establish_connection().await;
+
     // Specify the URL of the Ethereum node you want to connect to
 
     // Create an HTTP provider
     let provider = Provider::<Http>::try_from(MATICURL).unwrap();
     let key: Result<String, env::VarError> = env::var("PRIVATE_KEY");
-    let wallet: LocalWallet = key.unwrap()
+    let wallet: LocalWallet = key
+        .unwrap()
         .parse::<LocalWallet>()
         .unwrap()
         .with_chain_id(Chain::Moonbeam);
     let client = SignerMiddleware::new(provider.clone(), wallet.clone());
 
-    let mut nfts: Vec<TokenLocal> = make_nft_array().await;
+    let mut nfts: Vec<TokenLocal> = make_nft_array(connection).await;
 
     let contract_addr = Address::from_str("0x2953399124F0cBB46d2CbACD8A89cF0599974963").unwrap();
     // let client = ethers::etherscan::Client::new(Chain::Polygon, MATICURL).unwrap();
@@ -339,27 +340,24 @@ async fn get_nft_by_address(address: web::Path<String>) -> impl Responder {
     for i in 0..nfts.len() {
         nfts[i].count = balance[i].as_u32() as i32;
     }
-    let pts = get_pts(&nfts);
+    let pts = get_pts(&nfts).await;
 
     let response: Fun1Response = Fun1Response { nfts, pts };
 
     HttpResponse::Ok().json(response)
 }
-
-async fn get_nft_by_address_local(address: &String) -> (Vec<TokenLocal>, f64) {
+//
+async fn get_nft_by_address_local(
+    client: &SignerMiddleware<Provider<Http>, Wallet<k256::ecdsa::SigningKey>>,
+    mut nfts: Vec<TokenLocal>,
+    address: &String,
+) -> (Vec<TokenLocal>, f64) {
     // println!("Run Get Nft by adress");
     // Specify the URL of the Ethereum node you want to connect to
 
     // Create an HTTP provider
-    let provider = Provider::<Http>::try_from(MATICURL).unwrap();
-    let key = env::var("PRIVATE_KEY").unwrap();
-    let wallet: LocalWallet = key
-        .parse::<LocalWallet>()
-        .unwrap()
-        .with_chain_id(Chain::Moonbeam);
-    let client = SignerMiddleware::new(provider.clone(), wallet.clone());
 
-    let mut nfts: Vec<TokenLocal> = make_nft_array().await;
+    // let mut nfts = make_nft_array(connection).await;
 
     let contract_addr = Address::from_str("0x2953399124F0cBB46d2CbACD8A89cF0599974963").unwrap();
     // let client = ethers::etherscan::Client::new(Chain::Polygon, MATICURL).unwrap();
@@ -371,7 +369,7 @@ async fn get_nft_by_address_local(address: &String) -> (Vec<TokenLocal>, f64) {
     for i in 0..nfts.len() {
         nfts[i].count = balance[i].as_u32() as i32;
     }
-    let pts = get_pts(&nfts);
+    let pts = get_pts(&nfts).await;
     (nfts, pts)
 }
 
@@ -616,6 +614,8 @@ async fn init_db() -> impl Responder {
             level: "Rare".to_string(),
         },
     ];
+    let connection = &mut establish_connection().await;
+
     for token in &result {
         let new_token = NewToken {
             id: &token.id,
@@ -623,7 +623,6 @@ async fn init_db() -> impl Responder {
             bracket: &token.bracket,
             level: &token.level,
         };
-        let connection = &mut establish_connection();
 
         diesel::insert_into(tokens::table())
             .values(new_token)
@@ -634,7 +633,7 @@ async fn init_db() -> impl Responder {
     HttpResponse::Ok().json("Oke")
 }
 
-use tokio::task;
+// use tokio::task;
 
 use tokio::task::JoinSet;
 #[get("/owners")]
@@ -642,37 +641,52 @@ async fn get_owners() -> impl Responder {
     let start_time = Instant::now();
     let url = "https://polygon-mainnet.g.alchemy.com/nft/v2/lUgTmkM2_xJvUIF0dB1iFt0IQrqd4Haw/getOwnersForCollection?contractAddress=0x2953399124F0cBB46d2CbACD8A89cF0599974963&withTokenBalances=false";
     let response = reqwest::get(url).await.unwrap();
+    let elapsed_time = start_time.elapsed();
     let text = response.text().await.unwrap();
+    println!("REspone {}", elapsed_time.as_secs_f64());
+
     let mut owners: Owners = serde_json::from_str(&text).unwrap();
     let mut scores: HashMap<String, f64> = HashMap::new();
-    owners.ownerAddresses.truncate(5000);
-    let address_len = owners.ownerAddresses.len();
-
+    let provider = Provider::<Http>::try_from(MATICURL).unwrap();
+    let key = env::var("PRIVATE_KEY").unwrap();
+    let wallet: LocalWallet = key
+        .parse::<LocalWallet>()
+        .unwrap()
+        .with_chain_id(Chain::Moonbeam);
+    let client = SignerMiddleware::new(provider.clone(), wallet.clone());
+    owners.ownerAddresses.truncate(10000);
+    let connection = &mut establish_connection().await;
+    let nfts: Vec<TokenLocal> = make_nft_array(connection).await;
     let mut set = JoinSet::new();
-
-    println!("{}", &address_len);
     let mut handles = Vec::new();
 
     for addr in owners.ownerAddresses {
-        let s = match addr {
-            Some(x) => x,
-            None => continue,
-        };
+        let nfts_clone: Vec<TokenLocal> = nfts.clone();
+
+        let client_clone = client.clone();
 
         let handle = set.spawn(async move {
+            let s = match addr {
+                Some(x) => x,
+                None =>{ 
+                println!("ERROR");
+                "".to_string()
+            },
+            };
             let start_time1 = Instant::now();
 
-            let current_tuple = get_nft_by_address_local(&s).await;
+            let current_tuple = get_nft_by_address_local(&client_clone, nfts_clone, &s).await;
             let elapsed_time1 = start_time1.elapsed();
             let elapsed_time = start_time.elapsed();
-            println!("After run fun {},After start {}",elapsed_time1.as_secs_f64(),elapsed_time.as_secs_f64());
-
+            println!(
+                "After run fun {},After start {}",
+                elapsed_time1.as_secs_f64(),
+                elapsed_time.as_secs_f64()
+            );
             (s, current_tuple)
         });
         handles.push(handle);
     }
-    // let hanlers_len = handles.len();
-
     while let Some(res) = set.join_next().await {
         let (s, current_tuple) = res.unwrap();
         let pts = current_tuple.1;
@@ -685,8 +699,6 @@ async fn get_owners() -> impl Responder {
     }
     let mut sorted_scores: Vec<(&String, &f64)> = scores.iter().collect();
     sorted_scores.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
-    let elapsed_time = start_time.elapsed();
-    println!("Прошло времени: {} секунд", elapsed_time.as_secs());
     HttpResponse::Ok().json(sorted_scores)
 }
 
@@ -694,7 +706,7 @@ async fn get_owners() -> impl Responder {
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
     let key = env::var("SUKA");
-    println!("{:?}",key);
+    println!("{:?}", key);
 
     HttpServer::new(|| {
         App::new()
@@ -707,8 +719,6 @@ async fn main() -> std::io::Result<()> {
     .run()
     .await
 }
-
-
 
 #[allow(dead_code)]
 async fn get_nft(address: &web::Path<String>) -> ScanerResponse {
