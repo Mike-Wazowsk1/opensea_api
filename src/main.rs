@@ -659,6 +659,7 @@ async fn get_owners() -> impl Responder {
     let nfts: Vec<TokenLocal> = make_nft_array(connection).await;
     let mut set = JoinSet::new();
     let mut handles = Vec::new();
+    println!("Len: {:?}",owners.ownerAddresses);
 
     for addr in owners.ownerAddresses {
         let nfts_clone: Vec<TokenLocal> = nfts.clone();
@@ -676,13 +677,6 @@ async fn get_owners() -> impl Responder {
             let start_time1 = Instant::now();
 
             let current_tuple = get_nft_by_address_local(&client_clone, nfts_clone, &s).await;
-            let elapsed_time1 = start_time1.elapsed();
-            let elapsed_time = start_time.elapsed();
-            println!(
-                "After run fun {},After start {}",
-                elapsed_time1.as_secs_f64(),
-                elapsed_time.as_secs_f64()
-            );
             (s, current_tuple)
         });
         handles.push(handle);
@@ -697,7 +691,9 @@ async fn get_owners() -> impl Responder {
             scores.insert(s.to_string(), pts);
         }
     }
-    let mut sorted_scores: Vec<(&String, &f64)> = scores.iter().collect();
+    let v:Vec<(&String, &f64)>=scores.iter().collect();
+    println!("Res: {:?}", v.len());
+    let mut sorted_scores: Vec<(&String, &f64)> = v;
     sorted_scores.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
     HttpResponse::Ok().json(sorted_scores)
 }
