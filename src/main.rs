@@ -46,13 +46,21 @@ struct NFTResponse {
     nfts: Vec<NFT>,
 }
 #[derive(Debug, Deserialize, Serialize, Clone)]
-
-struct TokenLocal {
+pub struct TokenLocal {
     index: i32,
     count: i32,
     id: String,
     bracket: i32,
     level: String,
+}
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct TokenLocalTmp {
+    index: i32,
+    count: i32,
+    id: String,
+    bracket: i32,
+    level: String,
+    is_full: bool,
 }
 #[derive(Debug, Deserialize, Serialize)]
 struct Tx {
@@ -114,7 +122,7 @@ struct ScanerResponse {
 
 #[derive(Debug, Deserialize, Serialize)]
 struct Fun1Response {
-    nfts: Vec<TokenLocal>,
+    nfts: Vec<TokenLocalTmp>,
     sum_pts: f64,
     pts_by_grade: HashMap<String, f64>,
 }
@@ -375,7 +383,6 @@ async fn get_pts_by_grade(tokens_arr: &Vec<TokenLocal>) -> HashMap<String, f64> 
         ("Legendary".to_string(), 0.),
     ]);
 
-    
     let coef = multiplicator(tokens_arr).await;
     for g in ["Common", "Special", "Rare", "Unique", "Legendary"] {
         let mut pts = 0.;
@@ -385,10 +392,9 @@ async fn get_pts_by_grade(tokens_arr: &Vec<TokenLocal>) -> HashMap<String, f64> 
                 Some(x) => x,
                 None => &1.,
             };
-            if lvl == g{
-
-            pts += coef[token.bracket as usize] * point * token.count as f64;
-            scores.entry(lvl.to_string()).and_modify(|x| *x = pts);
+            if lvl == g {
+                pts += coef[token.bracket as usize] * point * token.count as f64;
+                scores.entry(lvl.to_string()).and_modify(|x| *x = pts);
             }
         }
     }
@@ -399,9 +405,6 @@ async fn get_pts_by_grade(tokens_arr: &Vec<TokenLocal>) -> HashMap<String, f64> 
 async fn get_nft_by_address(address: web::Path<String>) -> impl Responder {
     let connection = &mut establish_connection().await;
 
-    // Specify the URL of the Ethereum node you want to connect to
-
-    // Create an HTTP provider
     let provider = Provider::<Http>::try_from(MATICURL).unwrap();
     let key: Result<String, env::VarError> = env::var("PRIVATE_KEY");
     let wallet: LocalWallet = key
@@ -414,16 +417,31 @@ async fn get_nft_by_address(address: web::Path<String>) -> impl Responder {
     let mut nfts: Vec<TokenLocal> = make_nft_array(connection).await;
 
     let contract_addr = Address::from_str("0x2953399124F0cBB46d2CbACD8A89cF0599974963").unwrap();
-    // let client = ethers::etherscan::Client::new(Chain::Polygon, MATICURL).unwrap();
 
     let _balance = get_counts(&client, &contract_addr, &address, &mut nfts).await;
-    // for i in 0..nfts.len() {
-    //     nfts[i].count = balance[i].as_u32() as i32;
-    // }
     let sum_pts = get_pts(&nfts).await;
-    let res = nfts.clone();
     let pts_by_grade = get_pts_by_grade(&nfts).await;
-    // let vec_graeds:Vec<(&String, &f64)> =pts_by_grade.iter().collect();
+    let mut res: Vec<TokenLocalTmp> = Vec::new();
+
+    for token_local in &nfts {
+        let bracket_tmp = token_local.bracket;
+        let is_full = nfts
+            .iter()
+            .filter(|&t| t.bracket == bracket_tmp)
+            .all(|t| t.count > 0);
+
+        // Create TokenLocalTmp with the calculated value of is_full
+        let token_local_tmp = TokenLocalTmp {
+            index: token_local.index,
+            count: token_local.count,
+            id: token_local.id.clone(),
+            bracket: token_local.bracket,
+            level: token_local.level.clone(),
+            is_full,
+        };
+
+        res.push(token_local_tmp);
+    }
 
     let response: Fun1Response = Fun1Response {
         nfts: res,
@@ -439,25 +457,260 @@ async fn get_nft_by_address_local(
     nfts: &mut Vec<TokenLocal>,
     address: &String,
 ) -> f64 {
-    // println!("Run Get Nft by adress");
-    // Specify the URL of the Ethereum node you want to connect to
-
-    // Create an HTTP provider
-
-    // let mut nfts = make_nft_array(connection).await;
-
     let contract_addr = Address::from_str("0x2953399124F0cBB46d2CbACD8A89cF0599974963").unwrap();
-    // let client = ethers::etherscan::Client::new(Chain::Polygon, MATICURL).unwrap();
 
     let _balance = get_counts_local(&client, &contract_addr, &address, nfts).await;
-    // if balance.len() != nfts.len() {
-    //     return  -100.;
-    // }
-    // for i in 0..nfts.len() {
-    //     nfts[i].count = balance[i].as_u32() as i32;
-    // }
     let pts: f64 = get_pts(&nfts).await;
     pts
+}
+
+// use tokio::task;
+
+async fn get_ids() -> (Vec<String>, Vec<TokenLocal>) {
+    let mut blocked = false;
+    let mut token_ids = Vec::new();
+    let connection = &mut establish_connection().await;
+    let nfts: Vec<TokenLocal> = make_nft_array(connection).await;
+
+    let nfts_t = match get_collection_from_opensea().await {
+        Ok(x) => x,
+        Err(_x) => {
+            println!("opensead blocked. Get Nfts from db");
+            blocked = true;
+            NFTResponse { nfts: Vec::new() }
+        }
+    };
+    if !blocked {
+        for n in nfts_t.nfts {
+            let token_id = match n.identifier {
+                Some(x) => x,
+                None => continue,
+            };
+            token_ids.push(token_id);
+        }
+    } else {
+        for n in &nfts {
+            token_ids.push((*n.id).to_string());
+        }
+    }
+
+    (token_ids, nfts)
+}
+
+#[get("/get_owners")]
+async fn get_owners() -> impl Responder {
+    let provider = Provider::<Http>::try_from(MATICURL).unwrap();
+    let key = env::var("PRIVATE_KEY").unwrap();
+    let wallet: LocalWallet = key
+        .parse::<LocalWallet>()
+        .unwrap()
+        .with_chain_id(Chain::Moonbeam);
+    let client = SignerMiddleware::new(provider.clone(), wallet.clone());
+
+    let tup = get_ids().await;
+    let token_ids = tup.0;
+    let mut nfts: Vec<TokenLocal> = tup.1;
+    println!("{:?}", nfts);
+
+    let mut scores = HashMap::new();
+    // let mut set = JoinSet::new();
+    println!("Tokens: {:?}", token_ids);
+
+    for tok in token_ids {
+        let client_clone = client.clone();
+        // let scores_clone = scores;
+
+        let url = format!(
+                "https://polygon-mainnet.g.alchemy.com/nft/v2/lUgTmkM2_xJvUIF0dB1iFt0IQrqd4Haw/getOwnersForToken?contractAddress=0x2953399124F0cBB46d2CbACD8A89cF0599974963&tokenId={tok}",
+                tok = tok
+            );
+        let resp = reqwest::get(url).await;
+        let tmp_resp = match resp {
+            Ok(x) => x,
+            Err(_x) => panic!("Can't make request to alchemy"),
+        };
+        let resp_text = tmp_resp.text().await.unwrap();
+        println!("tEXT: {}", resp_text);
+
+        let tmp_serde: Result<OwnersResponse, serde_json::Error> = serde_json::from_str(&resp_text);
+        let tmp_owners: OwnersResponse = match tmp_serde {
+            Ok(x) => x,
+            Err(x) => {
+                println!("Err {}", x);
+                OwnersResponse {
+                    owners: Vec::new(),
+                    page_key: Option::None,
+                }
+            }
+        };
+
+        for owner in tmp_owners.owners {
+            let ok_owner = match owner {
+                Some(x) => x,
+                None => continue,
+            };
+            
+            if !scores.contains_key(&ok_owner) {
+                let current_address =
+                    get_nft_by_address_local(&client_clone, &mut nfts, &ok_owner).await;
+                let current_pts = current_address;
+                scores.insert(ok_owner, current_pts);
+            }
+        }
+    }
+
+    // println!("Res: {:?}", v.len());
+    // let tmp = scores;
+    let mut sorted_scores: Vec<(&String, &f64)> = scores.iter().collect();
+
+    sorted_scores.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
+    let mut s = 0.;
+    for st in &sorted_scores {
+        s += st.1;
+    }
+
+    let mut result = Vec::new();
+    for i in 0..sorted_scores.len() {
+        let reward = wbgl().await / (s * sorted_scores[i].1);
+        result.push(Fun2Response {
+            address: sorted_scores[i].0.to_string(),
+            score: *sorted_scores[i].1,
+            reward,
+        });
+    }
+    HttpResponse::Ok().json(result)
+}
+#[get("/get_wbgl")]
+async fn get_wbgl() -> impl Responder {
+    HttpResponse::Ok().json(wbgl().await)
+}
+
+async fn wbgl() -> f64 {
+    567.
+}
+
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    dotenv().ok();
+    let key = env::var("SUKA");
+    println!("{:?}", key);
+
+    HttpServer::new(|| {
+        App::new()
+            .service(get_nfts)
+            .service(get_nft_by_address)
+            .service(get_owners)
+            .service(init_db)
+            .service(get_wbgl)
+    })
+    .bind("0.0.0.0:8080")?
+    .run()
+    .await
+}
+
+#[allow(dead_code)]
+#[get("/owners")]
+async fn get_owners_old() -> impl Responder {
+    let url = "https://polygon-mainnet.g.alchemy.com/nft/v2/lUgTmkM2_xJvUIF0dB1iFt0IQrqd4Haw/getOwnersForCollection?contractAddress=0x2953399124F0cBB46d2CbACD8A89cF0599974963&withTokenBalances=false";
+    let response = reqwest::get(url).await.unwrap();
+    let text = response.text().await.unwrap();
+
+    let owners: Owners = serde_json::from_str(&text).unwrap();
+    let mut scores: HashMap<String, f64> = HashMap::new();
+    let provider = Provider::<Http>::try_from(MATICURL).unwrap();
+    let key = env::var("PRIVATE_KEY").unwrap();
+    let wallet: LocalWallet = key
+        .parse::<LocalWallet>()
+        .unwrap()
+        .with_chain_id(Chain::Moonbeam);
+    let client = SignerMiddleware::new(provider.clone(), wallet.clone());
+    // owners.ownerAddresses.truncate(10000);
+    let connection = &mut establish_connection().await;
+    let nfts: Vec<TokenLocal> = make_nft_array(connection).await;
+    let mut set = JoinSet::new();
+    let mut handles = Vec::new();
+    println!("Len: {:?}", owners.owner_addresses.len());
+
+    for addr in owners.owner_addresses {
+        let mut nfts_clone: Vec<TokenLocal> = nfts.clone();
+
+        let client_clone = client.clone();
+
+        let handle = set.spawn(async move {
+            let s = match addr {
+                Some(x) => x,
+                None => {
+                    println!("ERROR");
+                    "".to_string()
+                }
+            };
+
+            let current_tuple = get_nft_by_address_local(&client_clone, &mut nfts_clone, &s).await;
+            (s, current_tuple)
+        });
+        handles.push(handle);
+    }
+    while let Some(res) = set.join_next().await {
+        let (s, current_tuple) = res.unwrap();
+        let pts = current_tuple;
+        if pts == -100. {
+            continue;
+        }
+        if pts >= 0.0 {
+            scores.insert(s.to_string(), pts);
+        }
+    }
+    let v: Vec<(&String, &f64)> = scores.iter().collect();
+
+    let mut sorted_scores: Vec<(&String, &f64)> = v;
+    sorted_scores.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
+    HttpResponse::Ok().json(sorted_scores)
+}
+
+#[allow(dead_code)]
+async fn get_nft(address: &web::Path<String>) -> ScanerResponse {
+    let mut cur_page = 1;
+    let mut result: ScanerResponse = ScanerResponse {
+        status: None,
+        message: None,
+        result: Vec::new(),
+    };
+    let mut tx_array: Vec<Tx> = Vec::new();
+    let poly_api = "VTQ4CQUFH8JWB8RIQFST6MT3QVPMIV86Y2".to_string();
+    let _eth_api = "JS8AHSJV7H9X1J3MG4J656KM7NAVDA4R1P".to_string();
+    let client = match reqwest::Client::builder().build() {
+        Ok(client) => client,
+        Err(_err) => return result,
+    };
+    // let mut link = "https://api.etherscan.io/api?module=account&action=tokennfttx&address=0x567A623433D503183Fb383493FdB12A4780e2F60&page=1&offset=100&startblock=0&sort=asc&apikey=YourApiKeyToken".to_string();
+
+    loop {
+        let link = format!(
+        "https://api.polygonscan.com/api?module=account&action=token1155tx&address={address}&page={cur_page}&offset=100&startblock=0&sort=asc&apikey={poly_api}"
+    );
+
+        let resp = match client.get(link).send().await {
+            Ok(resp) => resp,
+            Err(_err) => continue,
+        };
+
+        let resp_text = match resp.text().await {
+            Ok(text) => text,
+            Err(_err) => continue,
+        };
+        let tmp: ScanerResponse = serde_json::from_str(&resp_text).unwrap();
+        if tmp.result.len() == 0 {
+            break;
+        }
+        println!("TMP: {:?}", tmp);
+        for tx in tmp.result {
+            tx_array.push(tx);
+        }
+        // result.result.push(tmp.result.into_iter().next().unwrap());
+        cur_page += 1;
+    }
+    result.result = tx_array;
+    result
 }
 
 #[get("/init_db")]
@@ -732,257 +985,4 @@ async fn init_db() -> impl Responder {
             .expect("Error saving new post");
     }
     HttpResponse::Ok().json("Oke")
-}
-
-// use tokio::task;
-
-async fn get_ids() -> (Vec<String>, Vec<TokenLocal>) {
-    let mut blocked = false;
-    let mut token_ids = Vec::new();
-    let connection = &mut establish_connection().await;
-    let nfts: Vec<TokenLocal> = make_nft_array(connection).await;
-
-    let nfts_t = match get_collection_from_opensea().await {
-        Ok(x) => x,
-        Err(_x) => {
-            println!("opensead blocked. Get Nfts from db");
-            blocked = true;
-            NFTResponse { nfts: Vec::new() }
-        }
-    };
-    if !blocked {
-        for n in nfts_t.nfts {
-            let token_id = match n.identifier {
-                Some(x) => x,
-                None => continue,
-            };
-            token_ids.push(token_id);
-        }
-    } else {
-        for n in &nfts {
-            token_ids.push((*n.id).to_string());
-        }
-    }
-
-    (token_ids, nfts)
-}
-
-#[get("/get_owners")]
-async fn get_owners() -> impl Responder {
-    let provider = Provider::<Http>::try_from(MATICURL).unwrap();
-    let key = env::var("PRIVATE_KEY").unwrap();
-    let wallet: LocalWallet = key
-        .parse::<LocalWallet>()
-        .unwrap()
-        .with_chain_id(Chain::Moonbeam);
-    let client = SignerMiddleware::new(provider.clone(), wallet.clone());
-
-    let tup = get_ids().await;
-    let token_ids = tup.0;
-    let mut nfts: Vec<TokenLocal> = tup.1;
-    println!("{:?}", nfts);
-
-    let mut scores = HashMap::new();
-    // let mut set = JoinSet::new();
-    println!("Tokens: {:?}", token_ids);
-
-    for tok in token_ids {
-        let client_clone = client.clone();
-        // let scores_clone = scores;
-
-        let url = format!(
-                "https://polygon-mainnet.g.alchemy.com/nft/v2/lUgTmkM2_xJvUIF0dB1iFt0IQrqd4Haw/getOwnersForToken?contractAddress=0x2953399124F0cBB46d2CbACD8A89cF0599974963&tokenId={tok}",
-                tok = tok
-            );
-        let resp = reqwest::get(url).await;
-        let tmp_resp = match resp {
-            Ok(x) => x,
-            Err(_x) => panic!("Can't make request to alchemy"),
-        };
-        let resp_text = tmp_resp.text().await.unwrap();
-        println!("tEXT: {}", resp_text);
-
-        let tmp_serde: Result<OwnersResponse, serde_json::Error> = serde_json::from_str(&resp_text);
-        let tmp_owners: OwnersResponse = match tmp_serde {
-            Ok(x) => x,
-            Err(x) => {
-                println!("Err {}", x);
-                OwnersResponse {
-                    owners: Vec::new(),
-                    page_key: Option::None,
-                }
-            }
-        };
-
-        for owner in tmp_owners.owners {
-            let ok_owner = match owner {
-                Some(x) => x,
-                None => continue,
-            };
-            if !scores.contains_key(&ok_owner) {
-                let current_address =
-                    get_nft_by_address_local(&client_clone, &mut nfts, &ok_owner).await;
-                let current_pts = current_address;
-                scores.insert(ok_owner, current_pts);
-            }
-        }
-    }
-
-    // println!("Res: {:?}", v.len());
-    // let tmp = scores;
-    println!("Maps {:?} ", scores);
-    let mut sorted_scores: Vec<(&String, &f64)> = scores.iter().collect();
-
-    sorted_scores.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
-    let mut s = 0.;
-    for st in &sorted_scores {
-        s += st.1;
-    }
-
-    let mut result = Vec::new();
-    for i in 0..sorted_scores.len() {
-        let reward = wbgl().await / (s * sorted_scores[i].1);
-        result.push(Fun2Response {
-            address: sorted_scores[i].0.to_string(),
-            score: *sorted_scores[i].1,
-            reward,
-        });
-    }
-    HttpResponse::Ok().json(result)
-}
-#[get("/get_wbgl")]
-async fn get_wbgl() -> impl Responder {
-    HttpResponse::Ok().json(wbgl().await)
-}
-
-async fn wbgl() -> f64 {
-    567.
-}
-
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
-    dotenv().ok();
-    let key = env::var("SUKA");
-    println!("{:?}", key);
-
-    HttpServer::new(|| {
-        App::new()
-            .service(get_nfts)
-            .service(get_nft_by_address)
-            .service(get_owners)
-            .service(init_db)
-            .service(get_wbgl)
-    })
-    .bind("0.0.0.0:8080")?
-    .run()
-    .await
-}
-
-#[allow(dead_code)]
-async fn get_nft(address: &web::Path<String>) -> ScanerResponse {
-    let mut cur_page = 1;
-    let mut result: ScanerResponse = ScanerResponse {
-        status: None,
-        message: None,
-        result: Vec::new(),
-    };
-    let mut tx_array: Vec<Tx> = Vec::new();
-    let poly_api = "VTQ4CQUFH8JWB8RIQFST6MT3QVPMIV86Y2".to_string();
-    let _eth_api = "JS8AHSJV7H9X1J3MG4J656KM7NAVDA4R1P".to_string();
-    let client = match reqwest::Client::builder().build() {
-        Ok(client) => client,
-        Err(_err) => return result,
-    };
-    // let mut link = "https://api.etherscan.io/api?module=account&action=tokennfttx&address=0x567A623433D503183Fb383493FdB12A4780e2F60&page=1&offset=100&startblock=0&sort=asc&apikey=YourApiKeyToken".to_string();
-
-    loop {
-        let link = format!(
-        "https://api.polygonscan.com/api?module=account&action=token1155tx&address={address}&page={cur_page}&offset=100&startblock=0&sort=asc&apikey={poly_api}"
-    );
-
-        let resp = match client.get(link).send().await {
-            Ok(resp) => resp,
-            Err(_err) => continue,
-        };
-
-        let resp_text = match resp.text().await {
-            Ok(text) => text,
-            Err(_err) => continue,
-        };
-        let tmp: ScanerResponse = serde_json::from_str(&resp_text).unwrap();
-        if tmp.result.len() == 0 {
-            break;
-        }
-        println!("TMP: {:?}", tmp);
-        for tx in tmp.result {
-            tx_array.push(tx);
-        }
-        // result.result.push(tmp.result.into_iter().next().unwrap());
-        cur_page += 1;
-    }
-    result.result = tx_array;
-    result
-}
-
-#[allow(dead_code)]
-#[get("/owners")]
-async fn get_owners_old() -> impl Responder {
-    let start_time = Instant::now();
-    let url = "https://polygon-mainnet.g.alchemy.com/nft/v2/lUgTmkM2_xJvUIF0dB1iFt0IQrqd4Haw/getOwnersForCollection?contractAddress=0x2953399124F0cBB46d2CbACD8A89cF0599974963&withTokenBalances=false";
-    let response = reqwest::get(url).await.unwrap();
-    let elapsed_time = start_time.elapsed();
-    let text = response.text().await.unwrap();
-    println!("REspone {}", elapsed_time.as_secs_f64());
-
-    let owners: Owners = serde_json::from_str(&text).unwrap();
-    let mut scores: HashMap<String, f64> = HashMap::new();
-    let provider = Provider::<Http>::try_from(MATICURL).unwrap();
-    let key = env::var("PRIVATE_KEY").unwrap();
-    let wallet: LocalWallet = key
-        .parse::<LocalWallet>()
-        .unwrap()
-        .with_chain_id(Chain::Moonbeam);
-    let client = SignerMiddleware::new(provider.clone(), wallet.clone());
-    // owners.ownerAddresses.truncate(10000);
-    let connection = &mut establish_connection().await;
-    let nfts: Vec<TokenLocal> = make_nft_array(connection).await;
-    let mut set = JoinSet::new();
-    let mut handles = Vec::new();
-    println!("Len: {:?}", owners.owner_addresses.len());
-
-    for addr in owners.owner_addresses {
-        let mut nfts_clone: Vec<TokenLocal> = nfts.clone();
-
-        let client_clone = client.clone();
-
-        let handle = set.spawn(async move {
-            let s = match addr {
-                Some(x) => x,
-                None => {
-                    println!("ERROR");
-                    "".to_string()
-                }
-            };
-
-            let current_tuple = get_nft_by_address_local(&client_clone, &mut nfts_clone, &s).await;
-            (s, current_tuple)
-        });
-        handles.push(handle);
-    }
-    while let Some(res) = set.join_next().await {
-        let (s, current_tuple) = res.unwrap();
-        let pts = current_tuple;
-        if pts == -100. {
-            continue;
-        }
-        if pts >= 0.0 {
-            scores.insert(s.to_string(), pts);
-        }
-    }
-    let v: Vec<(&String, &f64)> = scores.iter().collect();
-    println!("{:?}", scores);
-    println!("Res: {:?}", v.len());
-    let mut sorted_scores: Vec<(&String, &f64)> = v;
-    sorted_scores.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
-    HttpResponse::Ok().json(sorted_scores)
 }
