@@ -2226,6 +2226,7 @@ dependencies = [
  "dotenv",
  "dotenvy",
  "ethers",
+ "rayon",
  "reqwest",
  "serde",
  "serde_json",

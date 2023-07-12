@@ -13,7 +13,6 @@ use serde::{Deserialize, Serialize};
 use std::env;
 use std::str::FromStr;
 use std::sync::Arc;
-use std::time::Instant;
 use std::{collections::HashMap, error::Error};
 use tokio::task::JoinSet;
 
@@ -549,7 +548,6 @@ async fn get_owners() -> impl Responder {
                 Some(x) => x,
                 None => continue,
             };
-            
             if !scores.contains_key(&ok_owner) {
                 let current_address =
                     get_nft_by_address_local(&client_clone, &mut nfts, &ok_owner).await;
@@ -964,6 +962,46 @@ async fn init_db() -> impl Responder {
             count: 0,
             bracket: 11,
             level: "Rare".to_string(),
+        },
+        TokenLocal {
+            index: 33,
+            id: "18349153976137682097687065310984821295737582987254388036615603435683574710297"
+                .to_string(),
+            count: 0,
+            bracket: 11,
+            level: "Unique".to_string(),
+        },
+        TokenLocal {
+            index: 34,
+            id: "18349153976137682097687065310984821295737582987254388036615603435683574710297"
+                .to_string(),
+            count: 0,
+            bracket: 11,
+            level: "Unique".to_string(),
+        },
+        TokenLocal {
+            index: 35,
+            id: "18349153976137682097687065310984821295737582987254388036615603435683574710297"
+                .to_string(),
+            count: 0,
+            bracket: 11,
+            level: "Unique".to_string(),
+        },
+        TokenLocal {
+            index: 36,
+            id: "18349153976137682097687065310984821295737582987254388036615603435683574710297"
+                .to_string(),
+            count: 0,
+            bracket: 11,
+            level: "Unique".to_string(),
+        },
+        TokenLocal {
+            index: 37,
+            id: "18349153976137682097687065310984821295737582987254388036615603435683574710297"
+                .to_string(),
+            count: 0,
+            bracket: 11,
+            level: "Legendary".to_string(),
         },
     ];
 
