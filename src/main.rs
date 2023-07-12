@@ -965,7 +965,7 @@ async fn init_db() -> impl Responder {
         },
         TokenLocal {
             index: 33,
-            id: "18349153976137682097687065310984821295737582987254388036615603435683574710297"
+            id: "NO_VALUE"
                 .to_string(),
             count: 0,
             bracket: 11,
@@ -973,7 +973,7 @@ async fn init_db() -> impl Responder {
         },
         TokenLocal {
             index: 34,
-            id: "18349153976137682097687065310984821295737582987254388036615603435683574710297"
+            id: "NO_VALUE"
                 .to_string(),
             count: 0,
             bracket: 11,
@@ -981,7 +981,7 @@ async fn init_db() -> impl Responder {
         },
         TokenLocal {
             index: 35,
-            id: "18349153976137682097687065310984821295737582987254388036615603435683574710297"
+            id: "NO_VALUE"
                 .to_string(),
             count: 0,
             bracket: 11,
@@ -989,7 +989,7 @@ async fn init_db() -> impl Responder {
         },
         TokenLocal {
             index: 36,
-            id: "18349153976137682097687065310984821295737582987254388036615603435683574710297"
+            id: "NO_VALUE"
                 .to_string(),
             count: 0,
             bracket: 11,
@@ -997,7 +997,7 @@ async fn init_db() -> impl Responder {
         },
         TokenLocal {
             index: 37,
-            id: "18349153976137682097687065310984821295737582987254388036615603435683574710297"
+            id: "NO_VALUE"
                 .to_string(),
             count: 0,
             bracket: 11,
