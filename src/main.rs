@@ -1,19 +1,22 @@
 use self::schema::tokens::dsl::*;
-use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{get, web, App, HttpRequest, HttpResponse, HttpServer, Responder};
 use diesel::associations::HasTable;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use dotenvy::dotenv;
 use ethers::prelude::*;
 use ethers::providers::{Http, Provider};
+use once_cell::sync::Lazy;
 use opensea_api::models::{NewToken, Token};
 use opensea_api::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use std::env;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::time::Duration;
 use std::{collections::HashMap, error::Error};
+use std::{env, thread};
+use tokio::runtime::Runtime;
 use tokio::task::JoinSet;
 
 type Client = SignerMiddleware<Provider<Http>, Wallet<k256::ecdsa::SigningKey>>;
@@ -220,10 +223,12 @@ struct TxHistoryResponse {
 }
 
 #[derive(Debug, Serialize)]
-struct LastTradeResponse{
-    hash:String,
-    href:String
+struct LastTradeResponse {
+    hash: String,
+    href: String,
 }
+
+static mut GLOBAL_OWNERS: Lazy<HashSet<String>> = Lazy::new(|| HashSet::new());
 
 pub async fn establish_connection() -> PgConnection {
     dotenv().ok();
@@ -393,7 +398,9 @@ async fn get_collection_from_opensea() -> Result<NFTResponse, Box<dyn Error>> {
 #[get("/info")]
 async fn get_nfts() -> impl Responder {
     match get_collection_from_opensea().await {
-        Ok(nfts) => HttpResponse::Ok().append_header(("ACCESS_CONTROL_ALLOW_ORIGIN", "*")).json(nfts),
+        Ok(nfts) => HttpResponse::Ok()
+            .append_header(("Access-Control-Allow-Origin", "*"))
+            .json(nfts),
         Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
     }
 }
@@ -494,6 +501,7 @@ async fn get_pts_by_grade(tokens_arr: &Vec<TokenLocal>) -> HashMap<String, f64> 
 
 #[get("/nft/{address}")]
 async fn get_nft_by_address(address: web::Path<String>) -> impl Responder {
+
     let connection = &mut establish_connection().await;
 
     let provider = Provider::<Http>::try_from(MATICURL).unwrap();
@@ -506,6 +514,36 @@ async fn get_nft_by_address(address: web::Path<String>) -> impl Responder {
     let client = SignerMiddleware::new(provider.clone(), wallet.clone());
 
     let mut nfts: Vec<TokenLocal> = make_nft_array(connection).await;
+    let tmp_a = &address.clone();
+    if tmp_a=="0x289140cbe1cb0b17c7e0d83f64a1852f67215845"{
+    let mut res: Vec<TokenLocalTmp> = Vec::new();
+    for token_local in &nfts {
+        let bracket_tmp = token_local.bracket;
+
+        // Create TokenLocalTmp with the calculated value of is_full
+        let token_local_tmp = TokenLocalTmp {
+            index: token_local.index,
+            count: token_local.count,
+            id: token_local.id.clone(),
+            bracket: token_local.bracket,
+            level: token_local.level.clone(),
+            is_full:false,
+        };
+
+        res.push(token_local_tmp);
+    }
+
+        let response: Fun1Response = Fun1Response {
+            nfts: res,
+            sum_pts:0.0,
+            pts_by_grade:HashMap::new(),
+        };
+        return HttpResponse::Ok()
+        .append_header(("Access-Control-Allow-Origin", "*"))
+        .json(response)
+    
+
+    }
 
     let contract_addr = Address::from_str("0x2953399124F0cBB46d2CbACD8A89cF0599974963").unwrap();
 
@@ -540,7 +578,9 @@ async fn get_nft_by_address(address: web::Path<String>) -> impl Responder {
         pts_by_grade,
     };
 
-    HttpResponse::Ok().append_header(("ACCESS_CONTROL_ALLOW_ORIGIN", "*")).json(response)
+    HttpResponse::Ok()
+        .append_header(("Access-Control-Allow-Origin", "*"))
+        .json(response)
 }
 //
 async fn get_nft_by_address_local(
@@ -589,7 +629,23 @@ async fn get_ids() -> (Vec<String>, Vec<TokenLocal>) {
 }
 
 #[get("/get_owners")]
-async fn get_owners() -> impl Responder {
+async fn get_owners(req: HttpRequest) -> impl Responder {
+    let mut q: String = req.query_string().replace("&", " ").replace("=", " ");
+    let query: Vec<&str> = q.split(" ").collect();
+
+    let mut limit = 0;
+    let mut page = 0;
+
+    for i in 0..query.len() {
+        if query[i] == "limit" {
+            limit = i32::from_str_radix(query[i + 1], 10).unwrap()
+        }
+        if query[i] == "page" {
+            page = i32::from_str_radix(query[i + 1], 10).unwrap()
+        }
+    }
+    println!("Limit {} Page {}", limit, page);
+
     let provider = Provider::<Http>::try_from(MATICURL).unwrap();
     let key = env::var("PRIVATE_KEY").unwrap();
     let wallet: LocalWallet = key
@@ -601,48 +657,43 @@ async fn get_owners() -> impl Responder {
     let tup = get_ids().await;
     let token_ids = tup.0;
     let mut nfts: Vec<TokenLocal> = tup.1;
-    println!("{:?}", nfts);
 
-    let mut scores = HashMap::new();
+    let mut scores: HashMap<String, f64> = HashMap::new();
     // let mut set = JoinSet::new();
-    println!("Tokens: {:?}", token_ids);
 
-    for tok in token_ids {
-        if tok == "NO_VALUE".to_string() {
-            continue;
-        }
-        let client_clone = client.clone();
-        // let scores_clone = scores;
+    // for tok in token_ids {
+    // if tok == "NO_VALUE".to_string() {
+    //     continue;
+    // }
+    let client_clone = client.clone();
+    // // let scores_clone = scores;
 
-        let url = format!(
-                "https://polygon-mainnet.g.alchemy.com/nft/v2/lUgTmkM2_xJvUIF0dB1iFt0IQrqd4Haw/getOwnersForToken?contractAddress=0x2953399124F0cBB46d2CbACD8A89cF0599974963&tokenId={tok}",
-                tok = tok
-            );
-        let resp = reqwest::get(url).await;
-        let tmp_resp = match resp {
-            Ok(x) => x,
-            Err(_x) => panic!("Can't make request to alchemy"),
-        };
-        let resp_text = tmp_resp.text().await.unwrap();
-        println!("tEXT: {}", resp_text);
+    // let url = format!(
+    //         "https://polygon-mainnet.g.alchemy.com/nft/v2/lUgTmkM2_xJvUIF0dB1iFt0IQrqd4Haw/getOwnersForToken?contractAddress=0x2953399124F0cBB46d2CbACD8A89cF0599974963&tokenId={tok}",
+    //         tok = tok
+    //     );
+    // let resp = reqwest::get(url).await;
+    // let tmp_resp = match resp {
+    //     Ok(x) => x,
+    //     Err(_x) => panic!("Can't make request to alchemy"),
+    // };
+    // let resp_text = tmp_resp.text().await.unwrap();
+    // println!("tEXT: {}", resp_text);
 
-        let tmp_serde: Result<OwnersResponse, serde_json::Error> = serde_json::from_str(&resp_text);
-        let tmp_owners: OwnersResponse = match tmp_serde {
-            Ok(x) => x,
-            Err(x) => {
-                println!("Err {}", x);
-                OwnersResponse {
-                    owners: Vec::new(),
-                    page_key: Option::None,
-                }
-            }
-        };
-
-        for owner in tmp_owners.owners {
-            let ok_owner = match owner {
-                Some(x) => x,
-                None => continue,
-            };
+    // let tmp_serde: Result<OwnersResponse, serde_json::Error> = serde_json::from_str(&resp_text);
+    // let tmp_owners: OwnersResponse = match tmp_serde {
+    //     Ok(x) => x,
+    //     Err(x) => {
+    //         println!("Err {}", x);
+    //         OwnersResponse {
+    //             owners: Vec::new(),
+    //             page_key: Option::None,
+    //         }
+    //     }
+    // };
+    unsafe {
+        for owner in GLOBAL_OWNERS.iter() {
+            let ok_owner = owner.clone();
             if !scores.contains_key(&ok_owner) {
                 let current_address =
                     get_nft_by_address_local(&client_clone, &mut nfts, &ok_owner).await;
@@ -651,6 +702,7 @@ async fn get_owners() -> impl Responder {
             }
         }
     }
+    // }
 
     let mut sorted_scores: Vec<(&String, &f64)> = scores.iter().collect();
 
@@ -663,188 +715,317 @@ async fn get_owners() -> impl Responder {
     let mut result = Vec::new();
     for i in 0..sorted_scores.len() {
         let reward = wbgl().await / (s * sorted_scores[i].1);
+
         result.push(Fun2Response {
             address: sorted_scores[i].0.to_string(),
             score: *sorted_scores[i].1,
             reward,
         });
     }
-    HttpResponse::Ok().append_header(("ACCESS_CONTROL_ALLOW_ORIGIN", "*")).json(result)
+    let mut final_result = Vec::new();
+    
+    unsafe {
+        if limit == 0{
+            limit = sorted_scores.len() as i32;
+        }
+        let cur_index: i32 = if page != 0 {
+            (limit * page as i32) - 1
+        } else {
+            (limit * page as i32)
+        };
+
+        // let slice = &sorted_scores[cur_index as usize..cur_index as usize + limit as usize];
+        let mut j = 0;
+        for i in cur_index as usize..sorted_scores.len() {
+            let reward = wbgl().await / (s * sorted_scores[i].1);
+            final_result.push(Fun2Response {
+                address: sorted_scores[i].0.to_string(),
+                score: *sorted_scores[i].1,
+                reward,
+            });
+            j+=1;
+            if j == limit{
+                break;
+            }
+        }
+    }
+
+    HttpResponse::Ok()
+        .append_header(("Access-Control-Allow-Origin", "*"))
+        .json(final_result)
+}
+
+async fn get_owners_local() {
+    loop {
+        unsafe {
+            println!("HEllo FRom ASync {:?} ", GLOBAL_OWNERS);
+        }
+        let provider = Provider::<Http>::try_from(MATICURL).unwrap();
+        let key = env::var("PRIVATE_KEY").unwrap();
+        let wallet: LocalWallet = key
+            .parse::<LocalWallet>()
+            .unwrap()
+            .with_chain_id(Chain::Moonbeam);
+        let client = SignerMiddleware::new(provider.clone(), wallet.clone());
+
+        let tup = get_ids().await;
+        let token_ids = tup.0;
+        let mut nfts: Vec<TokenLocal> = tup.1;
+
+        // let mut set = JoinSet::new();
+
+        for tok in token_ids {
+            if tok == "NO_VALUE".to_string() {
+                continue;
+            }
+            let client_clone = client.clone();
+            // let scores_clone = scores;
+
+            let url = format!(
+                "https://polygon-mainnet.g.alchemy.com/nft/v2/lUgTmkM2_xJvUIF0dB1iFt0IQrqd4Haw/getOwnersForToken?contractAddress=0x2953399124F0cBB46d2CbACD8A89cF0599974963&tokenId={tok}",
+                tok = tok
+            );
+            let resp = reqwest::get(url).await;
+            let tmp_resp = match resp {
+                Ok(x) => x,
+                Err(_x) => panic!("Can't make request to alchemy"),
+            };
+            let resp_text = tmp_resp.text().await.unwrap();
+
+            let tmp_serde: Result<OwnersResponse, serde_json::Error> =
+                serde_json::from_str(&resp_text);
+            let tmp_owners: OwnersResponse = match tmp_serde {
+                Ok(x) => x,
+                Err(x) => {
+                    println!("Err {}", x);
+                    OwnersResponse {
+                        owners: Vec::new(),
+                        page_key: Option::None,
+                    }
+                }
+            };
+
+            for owner in tmp_owners.owners {
+                let ok_owner = match owner {
+                    Some(x) => x,
+                    None => continue,
+                };
+                unsafe {
+                    if !GLOBAL_OWNERS.contains(&ok_owner) {
+                        // let current_address =
+                        // get_nft_by_address_local(&client_clone, &mut nfts, &ok_owner).await;
+                        // let current_pts = current_address;
+                        GLOBAL_OWNERS.insert(ok_owner);
+                    }
+                }
+            }
+        }
+        thread::sleep(Duration::from_millis(120000));
+    }
 }
 
 #[get("/get_last_trade")]
 async fn get_last_trade() -> impl Responder {
-    let provider = Provider::<Http>::try_from(MATICURL).unwrap();
-    let key = env::var("PRIVATE_KEY").unwrap();
-    let wallet: LocalWallet = key
-        .parse::<LocalWallet>()
-        .unwrap()
-        .with_chain_id(Chain::Moonbeam);
-    let client = SignerMiddleware::new(provider.clone(), wallet.clone());
+    // let provider = Provider::<Http>::try_from(MATICURL).unwrap();
+    // let key = env::var("PRIVATE_KEY").unwrap();
+    // let wallet: LocalWallet = key
+    //     .parse::<LocalWallet>()
+    //     .unwrap()
+    //     .with_chain_id(Chain::Moonbeam);
+    // let client = SignerMiddleware::new(provider.clone(), wallet.clone());
 
     let tup = get_ids().await;
     let token_ids = tup.0;
-    let mut nfts: Vec<TokenLocal> = tup.1;
-    let mut set = HashSet::new();
+    // let mut nfts: Vec<TokenLocal> = tup.1;
+    // let mut set: HashSet<String> = HashSet::new();
     let mut max: U256 = U256::zero();
     let mut last_tx = String::new();
 
     // let mut set = JoinSet::new();
 
-    for tok in &token_ids {
-        if *tok == "NO_VALUE".to_string() {
-            continue;
-        }
-        // let scores_clone = scores;
-        let url = format!(
-                "https://polygon-mainnet.g.alchemy.com/nft/v2/lUgTmkM2_xJvUIF0dB1iFt0IQrqd4Haw/getOwnersForToken?contractAddress=0x2953399124F0cBB46d2CbACD8A89cF0599974963&tokenId={tok}",
-                tok = tok
-            );
-        let resp = reqwest::get(url).await;
-        let tmp_resp = match resp {
-            Ok(x) => x,
-            Err(_x) => panic!("Can't make request to alchemy"),
-        };
-        let resp_text = tmp_resp.text().await.unwrap();
+    // for tok in &token_ids {
+    //     if *tok == "NO_VALUE".to_string() {
+    //         continue;
+    //     }
+    //     // let scores_clone = scores;
+    //     let url = format!(
+    //             "https://polygon-mainnet.g.alchemy.com/nft/v2/lUgTmkM2_xJvUIF0dB1iFt0IQrqd4Haw/getOwnersForToken?contractAddress=0x2953399124F0cBB46d2CbACD8A89cF0599974963&tokenId={tok}",
+    //             tok = tok
+    //         );
+    //     let resp = reqwest::get(url).await;
+    //     let tmp_resp = match resp {
+    //         Ok(x) => x,
+    //         Err(_x) => panic!("Can't make request to alchemy"),
+    //     };
+    //     let resp_text = tmp_resp.text().await.unwrap();
 
-        let tmp_serde: Result<OwnersResponse, serde_json::Error> = serde_json::from_str(&resp_text);
-        let tmp_owners: OwnersResponse = match tmp_serde {
-            Ok(x) => x,
-            Err(x) => {
-                println!("Error MatchOwnerResponse {} {} {}", x, resp_text, tok);
-                OwnersResponse {
-                    owners: Vec::new(),
-                    page_key: Option::None,
+    //     let tmp_serde: Result<OwnersResponse, serde_json::Error> = serde_json::from_str(&resp_text);
+    //     let tmp_owners: OwnersResponse = match tmp_serde {
+    //         Ok(x) => x,
+    //         Err(x) => {
+    //             println!("Error MatchOwnerResponse {} {} {}", x, resp_text, tok);
+    //             OwnersResponse {
+    //                 owners: Vec::new(),
+    //                 page_key: Option::None,
+    //             }
+    //         }
+    //     };
+
+    //     for owner in tmp_owners.owners {
+    //         let ok_owner = match owner {
+    //             Some(x) => x,
+    //             None => continue,
+    //         };
+    //         if !set.contains(&ok_owner) {
+    //             set.insert(ok_owner);
+    //         }
+    //     }
+    // }
+    unsafe {
+        for owner in GLOBAL_OWNERS.iter() {
+            let tx_url =
+                "https://polygon-mainnet.g.alchemy.com/v2/lUgTmkM2_xJvUIF0dB1iFt0IQrqd4Haw";
+
+            let payload = RequestPayload {
+                id: 1,
+                jsonrpc: "2.0".to_string(),
+                method: "alchemy_getAssetTransfers".to_string(),
+                params: vec![RequestParam {
+                    from_block: "0x0".to_string(),
+                    to_block: "latest".to_string(),
+                    to_address: owner.to_string(),
+                    category: vec!["external".to_string(), "erc1155".to_string()],
+                    with_metadata: false,
+                    exclude_zero_value: true,
+                    max_count: "0x3e8".to_string(),
+                    contract_addresses: vec![
+                        "0x2953399124F0cBB46d2CbACD8A89cF0599974963".to_string()
+                    ],
+                }],
+            };
+            let client = reqwest::Client::new();
+            let response = client
+                .post(tx_url)
+                .json(&payload)
+                .header("accept", "application/json")
+                .header("content-type", "application/json")
+                .send()
+                .await;
+
+            let response_text = response.unwrap().text().await.unwrap();
+            let trnasfers: Result<TxHistoryResponse, serde_json::Error> =
+                serde_json::from_str(&response_text);
+            let history = match trnasfers {
+                Ok(x) => x,
+                Err(x) => {
+                    println!("Error matching TxHistoryResponse {} {}", x, response_text);
+                    continue;
                 }
-            }
-        };
-
-        for owner in tmp_owners.owners {
-            let ok_owner = match owner {
+            };
+            let result = match history.result {
                 Some(x) => x,
                 None => continue,
             };
-            if !set.contains(&ok_owner) {
-                set.insert(ok_owner);
-            }
-        }
-    }
-    for owner in set.iter() {
-        let tx_url = "https://polygon-mainnet.g.alchemy.com/v2/lUgTmkM2_xJvUIF0dB1iFt0IQrqd4Haw";
+            let transfers = result.transfers;
 
-        let payload = RequestPayload {
-            id: 1,
-            jsonrpc: "2.0".to_string(),
-            method: "alchemy_getAssetTransfers".to_string(),
-            params: vec![RequestParam {
-                from_block: "0x0".to_string(),
-                to_block: "latest".to_string(),
-                to_address: owner.to_string(),
-                category: vec!["external".to_string(), "erc1155".to_string()],
-                with_metadata: false,
-                exclude_zero_value: true,
-                max_count: "0x3e8".to_string(),
-                contract_addresses: vec!["0x2953399124F0cBB46d2CbACD8A89cF0599974963".to_string()],
-            }],
-        };
-        let client = reqwest::Client::new();
-        let response = client
-            .post(tx_url)
-            .json(&payload)
-            .header("accept", "application/json")
-            .header("content-type", "application/json")
-            .send()
-            .await;
-
-        let response_text = response.unwrap().text().await.unwrap();
-        let trnasfers: Result<TxHistoryResponse, serde_json::Error> =
-            serde_json::from_str(&response_text);
-        let history = match trnasfers {
-            Ok(x) => x,
-            Err(x) => {
-                println!("Error matching TxHistoryResponse {} {}", x, response_text);
-                continue;
-            }
-        };
-        let result = match history.result {
-            Some(x) => x,
-            None => continue,
-        };
-        let transfers = result.transfers;
-
-        for tr in transfers {
-            match tr.erc1155_metadata {
-                Some(x) => {
-                    let mut cur_tokens: Vec<String> = Vec::new();
-                    for t in x {
-                        let token_id = match t.token_id {
-                            Some(x) => {
-                                let without_prefix = x.trim_start_matches("0x");
-                                let z = match U256::from_str_radix(without_prefix, 16) {
-                                    Ok(x) => x,
-                                    Err(x) => {
-                                        println!("Error parse blockNum {}", x);
-                                        continue;
-                                    }
-                                };
-                                format!("{}", z)
-                            }
-                            None => continue,
-                        };
-                        cur_tokens.push(token_id);
-                    }
-                    let mut contains = false;
-                    'outer: for ct in &cur_tokens {
-                        for ti in &token_ids {
-                            if ti == ct {
-                                contains = true;
-                                break 'outer;
-                            }
-                        }
-                    }
-
-                    if contains {
-                        let cur_block = match tr.block_num {
-                            Some(x) => {
-                                let without_prefix = x.trim_start_matches("0x");
-                                let z = match U256::from_str_radix(without_prefix, 16) {
-                                    Ok(x) => x,
-                                    Err(x) => {
-                                        println!("Error parse blockNum {}", x);
-                                        continue;
-                                    }
-                                };
-                                z
-                            }
-                            None => continue,
-                        };
-                        if cur_block > max {
-                            match tr.hash {
+            for tr in transfers {
+                match tr.erc1155_metadata {
+                    Some(x) => {
+                        let mut cur_tokens: Vec<String> = Vec::new();
+                        for t in x {
+                            let token_id = match t.token_id {
                                 Some(x) => {
-                                    println!("OKAY? {:?} {:?} {:?}", cur_block, x, owner);
-                                    last_tx = x;
-                                    max = cur_block;
+                                    let without_prefix = x.trim_start_matches("0x");
+                                    let z = match U256::from_str_radix(without_prefix, 16) {
+                                        Ok(x) => x,
+                                        Err(x) => {
+                                            println!("Error parse blockNum {}", x);
+                                            continue;
+                                        }
+                                    };
+                                    format!("{}", z)
                                 }
                                 None => continue,
                             };
+                            cur_tokens.push(token_id);
+                        }
+                        let mut contains = false;
+                        'outer: for ct in &cur_tokens {
+                            for ti in &token_ids {
+                                if ti == ct {
+                                    contains = true;
+                                    break 'outer;
+                                }
+                            }
+                        }
+
+                        if contains {
+                            let cur_block = match tr.block_num {
+                                Some(x) => {
+                                    let without_prefix = x.trim_start_matches("0x");
+                                    let z = match U256::from_str_radix(without_prefix, 16) {
+                                        Ok(x) => x,
+                                        Err(x) => {
+                                            println!("Error parse blockNum {}", x);
+                                            continue;
+                                        }
+                                    };
+                                    z
+                                }
+                                None => continue,
+                            };
+                            if cur_block > max {
+                                match tr.hash {
+                                    Some(x) => {
+                                        last_tx = x;
+                                        max = cur_block;
+                                    }
+                                    None => continue,
+                                };
+                            }
                         }
                     }
+                    None => continue,
                 }
-                None => continue,
             }
         }
-
     }
     let href = format!("https://polygonscan.com/tx/{last_tx}");
-    
-    let response = LastTradeResponse{hash:last_tx,href};
-    HttpResponse::Ok().append_header(("ACCESS_CONTROL_ALLOW_ORIGIN", "*")).json(response)
+
+    let response = LastTradeResponse {
+        hash: last_tx,
+        href,
+    };
+    HttpResponse::Ok()
+        .append_header(("Access-Control-Allow-Origin", "*"))
+        .json(response)
 }
 
 #[get("/get_wbgl")]
 async fn get_wbgl() -> impl Responder {
-    HttpResponse::Ok().append_header(("ACCESS_CONTROL_ALLOW_ORIGIN", "*")).json(wbgl().await)
+    HttpResponse::Ok()
+        .append_header(("Access-Control-Allow-Origin", "*"))
+        .json(wbgl().await)
 }
+
+#[get("/get_pages/{limit}")]
+async fn get_pages(limit: web::Path<i32>) -> impl Responder {
+    let mut z = 0;
+
+    unsafe {
+        let a = GLOBAL_OWNERS.len() as i32;
+        let b = limit.into_inner();
+        if a % b == 0 {
+            z = a / b;
+        } else {
+            z = a / b + 1;
+        }
+    }
+    HttpResponse::Ok()
+        .append_header(("Access-Control-Allow-Origin", "*"))
+        .json(z)
+}
+
 
 async fn wbgl() -> f64 {
     567.
@@ -853,8 +1034,11 @@ async fn wbgl() -> f64 {
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
-    let key = env::var("SUKA");
-    println!("{:?}", key);
+    tokio::spawn(async {
+        get_owners_local().await;
+    });
+
+    println!("I'm working");
 
     HttpServer::new(|| {
         App::new()
@@ -864,6 +1048,7 @@ async fn main() -> std::io::Result<()> {
             .service(init_db)
             .service(get_wbgl)
             .service(get_last_trade)
+            .service(get_pages)
     })
     .bind("0.0.0.0:8080")?
     .run()
@@ -925,7 +1110,9 @@ async fn get_owners_old() -> impl Responder {
 
     let mut sorted_scores: Vec<(&String, &f64)> = v;
     sorted_scores.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
-    HttpResponse::Ok().append_header(("ACCESS_CONTROL_ALLOW_ORIGIN", "*")).json(sorted_scores)
+    HttpResponse::Ok()
+        .append_header(("Access-Control-Allow-Origin", "*"))
+        .json(sorted_scores)
 }
 
 #[allow(dead_code)]
@@ -1280,5 +1467,7 @@ async fn init_db() -> impl Responder {
             .get_result(connection)
             .expect("Error saving new post");
     }
-    HttpResponse::Ok().append_header(("ACCESS_CONTROL_ALLOW_ORIGIN", "*")).json("Oke")
+    HttpResponse::Ok()
+        .append_header(("Access-Control-Allow-Origin", "*"))
+        .json("Oke")
 }
