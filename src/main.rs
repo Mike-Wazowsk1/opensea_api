@@ -728,11 +728,13 @@ async fn get_owners(req: HttpRequest) -> impl Responder {
         if limit == 0{
             limit = sorted_scores.len() as i32;
         }
-        let cur_index: i32 = if page != 0 {
-            (limit * page as i32) - 1
-        } else {
-            (limit * page as i32)
-        };
+        page= page-1;
+
+        let cur_index: i32 = (limit * page as i32);
+            // (limit * page as i32) - 1
+        // } else {
+            
+        // };
 
         // let slice = &sorted_scores[cur_index as usize..cur_index as usize + limit as usize];
         let mut j = 0;
