@@ -222,7 +222,6 @@ struct TxHistoryResponse {
 #[derive(Debug, Serialize)]
 struct LastTradeResponse{
     hash:String,
-    block:U256,
     href:String
 }
 
@@ -837,7 +836,8 @@ async fn get_last_trade() -> impl Responder {
 
     }
     let href = format!("https://polygonscan.com/tx/{last_tx}");
-    let response = LastTradeResponse{hash:last_tx,block:max,href};
+    
+    let response = LastTradeResponse{hash:last_tx,href};
     HttpResponse::Ok().append_header(("ACCESS_CONTROL_ALLOW_ORIGIN", "*")).json(response)
 }
 
