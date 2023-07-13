@@ -725,9 +725,7 @@ async fn get_owners(req: HttpRequest) -> impl Responder {
     let mut final_result = Vec::new();
     
     unsafe {
-        if limit == 0{
-            limit = sorted_scores.len() as i32;
-        }
+        
         page= page-1;
 
         let cur_index: i32 = (limit * page as i32);
@@ -738,6 +736,10 @@ async fn get_owners(req: HttpRequest) -> impl Responder {
 
         // let slice = &sorted_scores[cur_index as usize..cur_index as usize + limit as usize];
         let mut j = 0;
+        if limit == 0{
+            limit = sorted_scores.len() as i32;
+            page=0;
+        }
         for i in cur_index as usize..sorted_scores.len() {
             let reward = wbgl().await / (s * sorted_scores[i].1);
             final_result.push(Fun2Response {
