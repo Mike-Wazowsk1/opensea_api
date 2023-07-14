@@ -501,7 +501,6 @@ async fn get_pts_by_grade(tokens_arr: &Vec<TokenLocal>) -> HashMap<String, f64> 
 
 #[get("/nft/{address}")]
 async fn get_nft_by_address(address: web::Path<String>) -> impl Responder {
-
     let connection = &mut establish_connection().await;
 
     let provider = Provider::<Http>::try_from(MATICURL).unwrap();
@@ -515,34 +514,32 @@ async fn get_nft_by_address(address: web::Path<String>) -> impl Responder {
 
     let mut nfts: Vec<TokenLocal> = make_nft_array(connection).await;
     let tmp_a = &address.clone();
-    if tmp_a=="0x289140cbe1cb0b17c7e0d83f64a1852f67215845"{
-    let mut res: Vec<TokenLocalTmp> = Vec::new();
-    for token_local in &nfts {
-        let bracket_tmp = token_local.bracket;
+    if tmp_a == "0x289140cbe1cb0b17c7e0d83f64a1852f67215845" {
+        let mut res: Vec<TokenLocalTmp> = Vec::new();
+        for token_local in &nfts {
+            let bracket_tmp = token_local.bracket;
 
-        // Create TokenLocalTmp with the calculated value of is_full
-        let token_local_tmp = TokenLocalTmp {
-            index: token_local.index,
-            count: token_local.count,
-            id: token_local.id.clone(),
-            bracket: token_local.bracket,
-            level: token_local.level.clone(),
-            is_full:false,
-        };
+            // Create TokenLocalTmp with the calculated value of is_full
+            let token_local_tmp = TokenLocalTmp {
+                index: token_local.index,
+                count: token_local.count,
+                id: token_local.id.clone(),
+                bracket: token_local.bracket,
+                level: token_local.level.clone(),
+                is_full: false,
+            };
 
-        res.push(token_local_tmp);
-    }
+            res.push(token_local_tmp);
+        }
 
         let response: Fun1Response = Fun1Response {
             nfts: res,
-            sum_pts:0.0,
-            pts_by_grade:HashMap::new(),
+            sum_pts: 0.0,
+            pts_by_grade: HashMap::new(),
         };
         return HttpResponse::Ok()
-        .append_header(("Access-Control-Allow-Origin", "*"))
-        .json(response)
-    
-
+            .append_header(("Access-Control-Allow-Origin", "*"))
+            .json(response);
     }
 
     let contract_addr = Address::from_str("0x2953399124F0cBB46d2CbACD8A89cF0599974963").unwrap();
@@ -635,6 +632,7 @@ async fn get_owners(req: HttpRequest) -> impl Responder {
 
     let mut limit = 0;
     let mut page = 0;
+    let mut search = "";
 
     for i in 0..query.len() {
         if query[i] == "limit" {
@@ -643,8 +641,10 @@ async fn get_owners(req: HttpRequest) -> impl Responder {
         if query[i] == "page" {
             page = i32::from_str_radix(query[i + 1], 10).unwrap()
         }
+        if query[i] == "match" || query[i] == "search" {
+            search = query[i + 1]
+        }
     }
-    println!("Limit {} Page {}", limit, page);
 
     let provider = Provider::<Http>::try_from(MATICURL).unwrap();
     let key = env::var("PRIVATE_KEY").unwrap();
@@ -659,6 +659,7 @@ async fn get_owners(req: HttpRequest) -> impl Responder {
     let mut nfts: Vec<TokenLocal> = tup.1;
 
     let mut scores: HashMap<String, f64> = HashMap::new();
+
     // let mut set = JoinSet::new();
 
     // for tok in token_ids {
@@ -691,6 +692,7 @@ async fn get_owners(req: HttpRequest) -> impl Responder {
     //         }
     //     }
     // };
+
     unsafe {
         for owner in GLOBAL_OWNERS.iter() {
             let ok_owner = owner.clone();
@@ -715,30 +717,44 @@ async fn get_owners(req: HttpRequest) -> impl Responder {
     let mut result = Vec::new();
     for i in 0..sorted_scores.len() {
         let reward = wbgl().await / (s * sorted_scores[i].1);
-
-        result.push(Fun2Response {
-            address: sorted_scores[i].0.to_string(),
-            score: *sorted_scores[i].1,
-            reward,
-        });
+        if search == "" {
+            result.push(Fun2Response {
+                address: sorted_scores[i].0.to_string(),
+                score: *sorted_scores[i].1,
+                reward,
+            });
+        } else {
+            if sorted_scores[i].0.to_string() == search {
+                result.push(Fun2Response {
+                    address: sorted_scores[i].0.to_string(),
+                    score: *sorted_scores[i].1,
+                    reward,
+                });
+            }
+          
+        }
+    }
+    if search != ""{
+        return HttpResponse::Ok()
+        .append_header(("Access-Control-Allow-Origin", "*"))
+        .json(result)
     }
     let mut final_result = Vec::new();
-    
+
     unsafe {
-        
-        page= page-1;
+        page = page - 1;
 
         let cur_index: i32 = (limit * page as i32);
-            // (limit * page as i32) - 1
+        // (limit * page as i32) - 1
         // } else {
-            
+
         // };
 
         // let slice = &sorted_scores[cur_index as usize..cur_index as usize + limit as usize];
         let mut j = 0;
-        if limit == 0{
+        if limit == 0 {
             limit = sorted_scores.len() as i32;
-            page=0;
+            page = 0;
         }
         for i in cur_index as usize..sorted_scores.len() {
             let reward = wbgl().await / (s * sorted_scores[i].1);
@@ -747,8 +763,8 @@ async fn get_owners(req: HttpRequest) -> impl Responder {
                 score: *sorted_scores[i].1,
                 reward,
             });
-            j+=1;
-            if j == limit{
+            j += 1;
+            if j == limit {
                 break;
             }
         }
@@ -1029,7 +1045,6 @@ async fn get_pages(limit: web::Path<i32>) -> impl Responder {
         .append_header(("Access-Control-Allow-Origin", "*"))
         .json(z)
 }
-
 
 async fn wbgl() -> f64 {
     567.
