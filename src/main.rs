@@ -708,7 +708,14 @@ async fn get_owners(req: HttpRequest) -> impl Responder {
 
     let mut sorted_scores: Vec<(&String, &f64)> = scores.iter().collect();
 
-    sorted_scores.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
+    sorted_scores.sort_by(|a, b| {
+        let score_comparison = b.1.partial_cmp(a.1).unwrap();
+        if score_comparison == std::cmp::Ordering::Equal {
+            a.0.partial_cmp(b.0).unwrap()
+        } else {
+            score_comparison
+        }
+    });
     let mut s = 0.;
     for st in &sorted_scores {
         s += st.1;
@@ -737,7 +744,7 @@ async fn get_owners(req: HttpRequest) -> impl Responder {
     if search != ""{
         return HttpResponse::Ok()
         .append_header(("Access-Control-Allow-Origin", "*"))
-        .json(result)
+        .json(result)   
     }
     let mut final_result = Vec::new();
 
@@ -832,9 +839,6 @@ async fn get_owners_local() {
                 };
                 unsafe {
                     if !GLOBAL_OWNERS.contains(&ok_owner) {
-                        // let current_address =
-                        // get_nft_by_address_local(&client_clone, &mut nfts, &ok_owner).await;
-                        // let current_pts = current_address;
                         GLOBAL_OWNERS.insert(ok_owner);
                     }
                 }
