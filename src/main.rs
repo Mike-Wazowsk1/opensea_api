@@ -723,7 +723,7 @@ async fn get_owners(req: HttpRequest) -> impl Responder {
 
     let mut result = Vec::new();
     for i in 0..sorted_scores.len() {
-        let reward = wbgl().await / (s * sorted_scores[i].1);
+        let reward = (wbgl().await* sorted_scores[i].1) / s;
         if search == "" {
             result.push(Fun2Response {
                 address: sorted_scores[i].0.to_string(),
@@ -764,7 +764,7 @@ async fn get_owners(req: HttpRequest) -> impl Responder {
             page = 0;
         }
         for i in cur_index as usize..sorted_scores.len() {
-            let reward = wbgl().await / (s * sorted_scores[i].1);
+            let reward = (wbgl().await* sorted_scores[i].1) / s;
             final_result.push(Fun2Response {
                 address: sorted_scores[i].0.to_string(),
                 score: *sorted_scores[i].1,
