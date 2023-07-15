@@ -568,6 +568,7 @@ async fn get_nft_by_address(address: web::Path<String>) -> impl Responder {
 
         res.push(token_local_tmp);
     }
+    res.sort_by(|a,b| a.index.partial_cmp(&b.index).unwrap());
 
     let response: Fun1Response = Fun1Response {
         nfts: res,
@@ -1466,7 +1467,7 @@ async fn init_db() -> impl Responder {
         },
         TokenLocal {
             index: 37,
-            id: "NO_VALUE".to_string(),
+            id: "18349153976137682097687065310984821295737582987254388036615603438982109593601".to_string(),
             count: 0,
             bracket: 11,
             level: "Legendary".to_string(),
