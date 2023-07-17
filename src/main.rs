@@ -384,7 +384,7 @@ async fn get_nfts() -> impl Responder {
 }
 
 async fn multiplicator(tokens_arr: &Vec<TokenLocal>) -> Vec<f64> {
-    let mut multiply = vec![1.; 12];
+    let mut multiply = vec![1.; 13];
     let mut cur = 0;
     //Common
     if tokens_arr[0].count > 0
