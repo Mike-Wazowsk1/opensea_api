@@ -239,7 +239,8 @@ pub async fn establish_connection() -> PgConnection {
 
 async fn make_nft_array(connection: &mut PgConnection) -> Vec<TokenLocal> {
     let mut result: Vec<TokenLocal> = vec![];
-    let db: Vec<Token> = tokens.load(connection).expect("Need data").order(index.asc());
+    let mut db: Vec<Token> = tokens.load(connection).expect("Need data");
+    db.sort_by(|a,b| a.index.partial_cmp(&b.index).unwrap());
     for l in db {
         let tmp = TokenLocal {
             index: l.index,
