@@ -395,6 +395,7 @@ async fn multiplicator(tokens_arr: &Vec<TokenLocal>) -> Vec<f64> {
         multiply[cur] = 1.5;
         cur += 1;
     }
+
     if tokens_arr[4].count > 0
         && tokens_arr[5].count > 0
         && tokens_arr[6].count > 0
@@ -403,6 +404,7 @@ async fn multiplicator(tokens_arr: &Vec<TokenLocal>) -> Vec<f64> {
         multiply[cur] = 1.5;
         cur += 1;
     }
+    //Special
     let mut i = 8;
     while i <= 20 {
         if tokens_arr[i].count > 0 && tokens_arr[i + 1].count > 0 && tokens_arr[i + 2].count > 0 {
@@ -411,6 +413,7 @@ async fn multiplicator(tokens_arr: &Vec<TokenLocal>) -> Vec<f64> {
         i += 3;
         cur += 1
     }
+    //Rare
     i = 23;
     while i <= 31 {
         if tokens_arr[i].count > 0 && tokens_arr[i + 1].count > 0 {
@@ -433,6 +436,8 @@ async fn get_pts(tokens_arr: &Vec<TokenLocal>) -> f64 {
 
     let mut pts = 0.;
     let coef = multiplicator(tokens_arr).await;
+    println!("MULTIPLICATOR: {}",coef);
+    
     for token in tokens_arr {
         let lvl = token.level.as_str();
         let point = match points.get(&lvl) {
