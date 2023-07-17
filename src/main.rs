@@ -239,7 +239,7 @@ pub async fn establish_connection() -> PgConnection {
 
 async fn make_nft_array(connection: &mut PgConnection) -> Vec<TokenLocal> {
     let mut result: Vec<TokenLocal> = vec![];
-    let db: Vec<Token> = tokens.load(connection).expect("Need data");
+    let db: Vec<Token> = tokens.load(connection).order(index.asc()).expect("Need data");
     for l in db {
         let tmp = TokenLocal {
             index: l.index,
@@ -250,29 +250,6 @@ async fn make_nft_array(connection: &mut PgConnection) -> Vec<TokenLocal> {
         };
         result.push(tmp);
     }
-    // let nfts = get_nft(&address).await;
-    // // println!("{:?}", nfts);
-    // let tmp = address.to_string().to_lowercase();
-    // for nft in nfts.result {
-    //     let address_to = match nft.to {
-    //         Some(x) => x.to_lowercase(),
-    //         None => continue,
-    //     };
-    //     if tmp == address_to {
-    //         for mut t in &mut result {
-    //             if t.id
-    //                 == match nft.token_id.clone() {
-    //                     Some(x) => x,
-    //                     None => {
-    //                         continue;
-    //                     }
-    //                 }
-    //             {
-    //                 t.count += 1;
-    //             }
-    //         }
-    //     }
-    // }
     result
 }
 
