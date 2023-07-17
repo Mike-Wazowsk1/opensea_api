@@ -393,8 +393,9 @@ async fn multiplicator(tokens_arr: &Vec<TokenLocal>) -> Vec<f64> {
         && tokens_arr[3].count > 0
     {
         multiply[cur] = 1.5;
-        cur += 1;
+        
     }
+    cur += 1;
 
     if tokens_arr[4].count > 0
         && tokens_arr[5].count > 0
@@ -402,8 +403,9 @@ async fn multiplicator(tokens_arr: &Vec<TokenLocal>) -> Vec<f64> {
         && tokens_arr[7].count > 0
     {
         multiply[cur] = 1.5;
-        cur += 1;
+        
     }
+    cur += 1;
     //Special
     let mut i = 8;
     while i <= 20 {
