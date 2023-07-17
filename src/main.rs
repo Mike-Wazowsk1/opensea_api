@@ -436,8 +436,8 @@ async fn get_pts(tokens_arr: &Vec<TokenLocal>) -> f64 {
 
     let mut pts = 0.;
     let coef = multiplicator(tokens_arr).await;
-    println!("MULTIPLICATOR: {}",coef);
-    
+    println!("MULTIPLICATOR: {:?}",coef);
+
     for token in tokens_arr {
         let lvl = token.level.as_str();
         let point = match points.get(&lvl) {
