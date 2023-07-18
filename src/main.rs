@@ -1,4 +1,6 @@
 use self::schema::tokens::dsl::*;
+use self::schema::info::dsl::*;
+
 use actix_web::{get, web, App, HttpRequest, HttpResponse, HttpServer, Responder};
 use diesel::associations::HasTable;
 use diesel::pg::PgConnection;
@@ -7,7 +9,7 @@ use dotenvy::dotenv;
 use ethers::prelude::*;
 use ethers::providers::{Http, Provider};
 use once_cell::sync::Lazy;
-use opensea_api::models::{NewToken, Token};
+use opensea_api::models::{NewToken, Token,InfoPoint};
 use opensea_api::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -16,7 +18,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::{collections::HashMap, error::Error};
 use std::{env, thread};
-use tokio::runtime::Runtime;
 use tokio::task::JoinSet;
 
 type Client = SignerMiddleware<Provider<Http>, Wallet<k256::ecdsa::SigningKey>>;
@@ -44,10 +45,12 @@ abigen!(
 );
 
 #[derive(Debug, Deserialize, Serialize)]
+#[allow(dead_code)]
 struct NFTResponse {
     nfts: Vec<NFT>,
 }
 #[derive(Debug, Deserialize, Serialize, Clone)]
+#[allow(dead_code)]
 pub struct TokenLocal {
     index: i32,
     count: i32,
@@ -56,6 +59,7 @@ pub struct TokenLocal {
     level: String,
 }
 #[derive(Debug, Deserialize, Serialize, Clone)]
+#[allow(dead_code)]
 pub struct TokenLocalTmp {
     index: i32,
     count: i32,
@@ -65,6 +69,7 @@ pub struct TokenLocalTmp {
     is_full: bool,
 }
 #[derive(Debug, Deserialize, Serialize)]
+#[allow(dead_code)]
 struct Tx {
     #[serde(rename = "blockNumber")]
     block_number: Option<String>,
@@ -100,6 +105,7 @@ struct Tx {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+#[allow(dead_code)]
 struct Owners {
     #[serde(rename = "ownerAddresses")]
     owner_addresses: Vec<Option<String>>,
@@ -108,6 +114,7 @@ struct Owners {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+#[allow(dead_code)]
 struct OwnersResponse {
     owners: Vec<Option<String>>,
     #[serde(rename = "pageKey")]
@@ -116,6 +123,7 @@ struct OwnersResponse {
 
 const MATICURL: &str = "https://polygon-rpc.com";
 #[derive(Debug, Deserialize, Serialize)]
+#[allow(dead_code)]
 struct ScanerResponse {
     status: Option<String>,
     message: Option<String>,
@@ -123,6 +131,7 @@ struct ScanerResponse {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+#[allow(dead_code)]
 struct Fun1Response {
     nfts: Vec<TokenLocalTmp>,
     sum_pts: f64,
@@ -130,6 +139,7 @@ struct Fun1Response {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+#[allow(dead_code)]
 struct Fun2Response {
     address: String,
     score: f64,
@@ -137,6 +147,7 @@ struct Fun2Response {
 }
 
 #[derive(Serialize, Deserialize)]
+#[allow(dead_code)]
 struct RequestPayload {
     id: u8,
     jsonrpc: String,
@@ -145,6 +156,7 @@ struct RequestPayload {
 }
 
 #[derive(Serialize, Deserialize)]
+#[allow(dead_code)]
 struct RequestParam {
     #[serde(rename = "fromBlock")]
     from_block: String,
@@ -163,7 +175,8 @@ struct RequestParam {
     contract_addresses: Vec<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
+#[allow(dead_code)]
 struct Transfer {
     category: Option<String>,
     #[serde(rename = "blockNum")]
@@ -189,40 +202,46 @@ struct Transfer {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct Erc1155Metadata {
     #[serde(rename = "tokenId")]
     token_id: Option<String>,
     value: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
+#[allow(dead_code)]
 struct RawContract {
     value: Option<String>,
     address: Option<String>,
     decimal: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
+#[allow(dead_code)]
 struct Metadata {
     #[serde(rename = "blockTimestamp")]
     block_timestamp: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
+#[allow(dead_code)]
 struct Response {
     #[serde(rename = "pageKey")]
     page_key: Option<String>,
     transfers: Vec<Transfer>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
+#[allow(dead_code)]
 struct TxHistoryResponse {
     id: i32,
     jsonrpc: Option<String>,
     result: Option<Response>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Serialize)]
+#[allow(dead_code)]
 struct LastTradeResponse {
     hash: String,
     href: String,
@@ -240,7 +259,7 @@ pub async fn establish_connection() -> PgConnection {
 async fn make_nft_array(connection: &mut PgConnection) -> Vec<TokenLocal> {
     let mut result: Vec<TokenLocal> = vec![];
     let mut db: Vec<Token> = tokens.load(connection).expect("Need data");
-    db.sort_by(|a,b| a.index.partial_cmp(&b.index).unwrap());
+    db.sort_by(|a, b| a.index.partial_cmp(&b.index).unwrap());
     for l in db {
         let tmp = TokenLocal {
             index: l.index,
@@ -356,7 +375,6 @@ async fn get_counts_local(
 }
 
 async fn get_collection_from_opensea() -> Result<NFTResponse, Box<dyn Error>> {
-    // let proxy = reqwest::Proxy::http("http://202.40.177.69:80")?;
     let client = reqwest::Client::builder().build()?;
 
     let resp = client
@@ -393,7 +411,6 @@ async fn multiplicator(tokens_arr: &Vec<TokenLocal>) -> Vec<f64> {
         && tokens_arr[3].count > 0
     {
         multiply[cur] = 1.5;
-        
     }
     cur += 1;
 
@@ -403,7 +420,6 @@ async fn multiplicator(tokens_arr: &Vec<TokenLocal>) -> Vec<f64> {
         && tokens_arr[7].count > 0
     {
         multiply[cur] = 1.5;
-        
     }
     cur += 1;
     //Special
@@ -438,7 +454,7 @@ async fn get_pts(tokens_arr: &Vec<TokenLocal>) -> f64 {
 
     let mut pts = 0.;
     let coef = multiplicator(tokens_arr).await;
-    println!("MULTIPLICATOR: {:?}",coef);
+    println!("MULTIPLICATOR: {:?}", coef);
 
     for token in tokens_arr {
         let lvl = token.level.as_str();
@@ -502,8 +518,6 @@ async fn get_nft_by_address(address: web::Path<String>) -> impl Responder {
     if tmp_a == "0x289140cbe1cb0b17c7e0d83f64a1852f67215845" {
         let mut res: Vec<TokenLocalTmp> = Vec::new();
         for token_local in &nfts {
-            let bracket_tmp = token_local.bracket;
-
             // Create TokenLocalTmp with the calculated value of is_full
             let token_local_tmp = TokenLocalTmp {
                 index: token_local.index,
@@ -553,7 +567,7 @@ async fn get_nft_by_address(address: web::Path<String>) -> impl Responder {
 
         res.push(token_local_tmp);
     }
-    res.sort_by(|a,b| a.index.partial_cmp(&b.index).unwrap());
+    res.sort_by(|a, b| a.index.partial_cmp(&b.index).unwrap());
 
     let response: Fun1Response = Fun1Response {
         nfts: res,
@@ -577,8 +591,6 @@ async fn get_nft_by_address_local(
     let pts: f64 = get_pts(&nfts).await;
     pts
 }
-
-// use tokio::task;
 
 async fn get_ids() -> (Vec<String>, Vec<TokenLocal>) {
     let mut blocked = false;
@@ -613,7 +625,7 @@ async fn get_ids() -> (Vec<String>, Vec<TokenLocal>) {
 
 #[get("/get_owners")]
 async fn get_owners(req: HttpRequest) -> impl Responder {
-    let mut q: String = req.query_string().replace("&", " ").replace("=", " ");
+    let q: String = req.query_string().replace("&", " ").replace("=", " ");
     let query: Vec<&str> = q.split(" ").collect();
 
     let mut limit = 0;
@@ -641,43 +653,11 @@ async fn get_owners(req: HttpRequest) -> impl Responder {
     let client = SignerMiddleware::new(provider.clone(), wallet.clone());
 
     let tup = get_ids().await;
-    let token_ids = tup.0;
     let mut nfts: Vec<TokenLocal> = tup.1;
 
     let mut scores: HashMap<String, f64> = HashMap::new();
 
-    // let mut set = JoinSet::new();
-
-    // for tok in token_ids {
-    // if tok == "NO_VALUE".to_string() {
-    //     continue;
-    // }
     let client_clone = client.clone();
-    // // let scores_clone = scores;
-
-    // let url = format!(
-    //         "https://polygon-mainnet.g.alchemy.com/nft/v2/lUgTmkM2_xJvUIF0dB1iFt0IQrqd4Haw/getOwnersForToken?contractAddress=0x2953399124F0cBB46d2CbACD8A89cF0599974963&tokenId={tok}",
-    //         tok = tok
-    //     );
-    // let resp = reqwest::get(url).await;
-    // let tmp_resp = match resp {
-    //     Ok(x) => x,
-    //     Err(_x) => panic!("Can't make request to alchemy"),
-    // };
-    // let resp_text = tmp_resp.text().await.unwrap();
-    // println!("tEXT: {}", resp_text);
-
-    // let tmp_serde: Result<OwnersResponse, serde_json::Error> = serde_json::from_str(&resp_text);
-    // let tmp_owners: OwnersResponse = match tmp_serde {
-    //     Ok(x) => x,
-    //     Err(x) => {
-    //         println!("Err {}", x);
-    //         OwnersResponse {
-    //             owners: Vec::new(),
-    //             page_key: Option::None,
-    //         }
-    //     }
-    // };
 
     unsafe {
         for owner in GLOBAL_OWNERS.iter() {
@@ -690,7 +670,6 @@ async fn get_owners(req: HttpRequest) -> impl Responder {
             }
         }
     }
-    // }
 
     let mut sorted_scores: Vec<(&String, &f64)> = scores.iter().collect();
 
@@ -709,7 +688,7 @@ async fn get_owners(req: HttpRequest) -> impl Responder {
 
     let mut result = Vec::new();
     for i in 0..sorted_scores.len() {
-        let reward = (wbgl().await* sorted_scores[i].1) / s;
+        let reward = (wbgl().await * sorted_scores[i].1) / s;
         if search == "" {
             result.push(Fun2Response {
                 address: sorted_scores[i].0.to_string(),
@@ -724,42 +703,31 @@ async fn get_owners(req: HttpRequest) -> impl Responder {
                     reward,
                 });
             }
-          
         }
     }
-    if search != ""{
+    if search != "" {
         return HttpResponse::Ok()
-        .append_header(("Access-Control-Allow-Origin", "*"))
-        .json(result)   
+            .append_header(("Access-Control-Allow-Origin", "*"))
+            .json(result);
     }
     let mut final_result = Vec::new();
 
-    unsafe {
-        page = page - 1;
-
-        let cur_index: i32 = (limit * page as i32);
-        // (limit * page as i32) - 1
-        // } else {
-
-        // };
-
-        // let slice = &sorted_scores[cur_index as usize..cur_index as usize + limit as usize];
-        let mut j = 0;
-        if limit == 0 {
-            limit = sorted_scores.len() as i32;
-            page = 0;
-        }
-        for i in cur_index as usize..sorted_scores.len() {
-            let reward = (wbgl().await* sorted_scores[i].1) / s;
-            final_result.push(Fun2Response {
-                address: sorted_scores[i].0.to_string(),
-                score: *sorted_scores[i].1,
-                reward,
-            });
-            j += 1;
-            if j == limit {
-                break;
-            }
+    page = page - 1;
+    let cur_index: i32 = limit * page as i32;
+    let mut j = 0;
+    if limit == 0 {
+        limit = sorted_scores.len() as i32;
+    }
+    for i in cur_index as usize..sorted_scores.len() {
+        let reward = (wbgl().await * sorted_scores[i].1) / s;
+        final_result.push(Fun2Response {
+            address: sorted_scores[i].0.to_string(),
+            score: *sorted_scores[i].1,
+            reward,
+        });
+        j += 1;
+        if j == limit {
+            break;
         }
     }
 
@@ -770,29 +738,13 @@ async fn get_owners(req: HttpRequest) -> impl Responder {
 
 async fn get_owners_local() {
     loop {
-        unsafe {
-            println!("HEllo FRom ASync {:?} ", GLOBAL_OWNERS);
-        }
-        let provider = Provider::<Http>::try_from(MATICURL).unwrap();
-        let key = env::var("PRIVATE_KEY").unwrap();
-        let wallet: LocalWallet = key
-            .parse::<LocalWallet>()
-            .unwrap()
-            .with_chain_id(Chain::Moonbeam);
-        let client = SignerMiddleware::new(provider.clone(), wallet.clone());
-
         let tup = get_ids().await;
         let token_ids = tup.0;
-        let mut nfts: Vec<TokenLocal> = tup.1;
-
-        // let mut set = JoinSet::new();
 
         for tok in token_ids {
             if tok == "NO_VALUE".to_string() {
                 continue;
             }
-            let client_clone = client.clone();
-            // let scores_clone = scores;
 
             let url = format!(
                 "https://polygon-mainnet.g.alchemy.com/nft/v2/lUgTmkM2_xJvUIF0dB1iFt0IQrqd4Haw/getOwnersForToken?contractAddress=0x2953399124F0cBB46d2CbACD8A89cF0599974963&tokenId={tok}",
@@ -1013,6 +965,8 @@ async fn get_last_trade() -> impl Responder {
 
 #[get("/get_wbgl")]
 async fn get_wbgl() -> impl Responder {
+    // let wbgl 
+
     HttpResponse::Ok()
         .append_header(("Access-Control-Allow-Origin", "*"))
         .json(wbgl().await)
@@ -1020,7 +974,7 @@ async fn get_wbgl() -> impl Responder {
 
 #[get("/get_pages/{limit}")]
 async fn get_pages(limit: web::Path<i32>) -> impl Responder {
-    let mut z = 0;
+    let z: i32;
 
     unsafe {
         let a = GLOBAL_OWNERS.len() as i32;
@@ -1037,6 +991,12 @@ async fn get_pages(limit: web::Path<i32>) -> impl Responder {
 }
 
 async fn wbgl() -> f64 {
+    let connection = &mut establish_connection().await;
+    let value = info.load::<InfoPoint>(connection).unwrap();
+    let mm = value;
+
+    println!("{:?}",mm);
+
     567.
 }
 
@@ -1452,7 +1412,8 @@ async fn init_db() -> impl Responder {
         },
         TokenLocal {
             index: 37,
-            id: "18349153976137682097687065310984821295737582987254388036615603438982109593601".to_string(),
+            id: "18349153976137682097687065310984821295737582987254388036615603438982109593601"
+                .to_string(),
             count: 0,
             bracket: 11,
             level: "Legendary".to_string(),

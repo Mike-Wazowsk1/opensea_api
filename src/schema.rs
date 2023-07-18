@@ -1,7 +1,14 @@
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
-    tokens (id) {
+    info (hash) {
+        hash -> Text,
+        wbgl -> Nullable<Float8>,
+    }
+}
+
+diesel::table! {
+    tokens (index) {
         index -> Int4,
         id -> Nullable<Text>,
         count -> Nullable<Int4>,
@@ -9,3 +16,8 @@ diesel::table! {
         level -> Nullable<Text>,
     }
 }
+
+diesel::allow_tables_to_appear_in_same_query!(
+    info,
+    tokens,
+);

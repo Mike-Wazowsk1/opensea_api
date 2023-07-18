@@ -1,5 +1,11 @@
-use diesel::prelude::*;
-use crate::schema::tokens;
+use diesel::Insertable;
+use diesel::Queryable;
+use diesel::Selectable;
+// use crate::schema::info;
+
+// use crate::schema::tokens;
+
+
 
 
 #[derive(Queryable, Selectable)]
@@ -15,11 +21,19 @@ pub struct Token {
 
 
 #[derive(Insertable)]
-#[diesel(table_name = tokens)]
+#[diesel(table_name = crate::schema::tokens)]
 pub struct NewToken<'a> {
     pub index: &'a i32,
     pub id: &'a str,
     pub count: &'a i32,
     pub bracket: &'a i32,
     pub level: &'a str,
+}
+#[derive(Debug,Queryable, Selectable,Insertable)]
+#[diesel(table_name = crate::schema::info)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct InfoPoint {
+    pub hash: String,
+    pub wbgl:  Option<f64>
+
 }
