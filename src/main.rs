@@ -618,7 +618,7 @@ async fn get_owners(req: HttpRequest) -> impl Responder {
 
     let mut limit = 0;
     let mut page = 0;
-    let mut search = "";
+    let mut search = "".to_string();
 
     for i in 0..query.len() {
         if query[i] == "limit" {
@@ -628,7 +628,7 @@ async fn get_owners(req: HttpRequest) -> impl Responder {
             page = i32::from_str_radix(query[i + 1], 10).unwrap()
         }
         if query[i] == "match" || query[i] == "search" {
-            search = query[i + 1]
+            search = query[i + 1].to_lowercase()
         }
     }
 
