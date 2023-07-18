@@ -297,7 +297,7 @@ async fn get_counts(
     for _i in 0..ids.len() {
         let tmp = match Address::from_str(&address) {
             Ok(x) => x,
-            Err(x) => {
+            Err(_x) => {
                 continue;
             }
         };
@@ -344,7 +344,7 @@ async fn get_counts_local(
     for _i in 0..ids.len() {
         let tmp = match Address::from_str(&address) {
             Ok(x) => x,
-            Err(x) => {
+            Err(_x) => {
                 continue;
             }
         };
@@ -752,7 +752,7 @@ async fn get_owners_local() {
                 serde_json::from_str(&resp_text);
             let tmp_owners: OwnersResponse = match tmp_serde {
                 Ok(x) => x,
-                Err(x) => {
+                Err(_x) => {
                     OwnersResponse {
                         owners: Vec::new(),
                         page_key: Option::None,
@@ -1047,6 +1047,7 @@ async fn get_owners_old() -> impl Responder {
             let s = match addr {
                 Some(x) => x,
                 None => {
+                    "".to_string()
                 }
             };
 
