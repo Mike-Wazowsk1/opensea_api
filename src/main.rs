@@ -1,5 +1,5 @@
-use self::schema::tokens::dsl::*;
 use self::schema::info::dsl::*;
+use self::schema::tokens::dsl::*;
 
 use actix_web::{get, web, App, HttpRequest, HttpResponse, HttpServer, Responder};
 use diesel::associations::HasTable;
@@ -9,7 +9,7 @@ use dotenvy::dotenv;
 use ethers::prelude::*;
 use ethers::providers::{Http, Provider};
 use once_cell::sync::Lazy;
-use opensea_api::models::{NewToken, Token,InfoPoint};
+use opensea_api::models::{InfoPoint, NewToken, Token};
 use opensea_api::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -919,7 +919,7 @@ async fn get_last_trade() -> impl Responder {
 
 #[get("/get_wbgl")]
 async fn get_wbgl() -> impl Responder {
-    // let wbgl 
+    // let wbgl
 
     HttpResponse::Ok()
         .append_header(("Access-Control-Allow-Origin", "*"))
@@ -943,11 +943,65 @@ async fn get_pages(limit: web::Path<i32>) -> impl Responder {
         .append_header(("Access-Control-Allow-Origin", "*"))
         .json(z)
 }
-
 async fn wbgl() -> f64 {
     let connection = &mut establish_connection().await;
     let value = info.load::<InfoPoint>(connection).unwrap();
     value[0].wbgl.unwrap() as f64
+}
+
+#[get("/get_payment")]
+async fn get_payment() -> impl Responder {
+    let provider = Provider::<Http>::try_from(MATICURL).unwrap();
+    let key = env::var("PRIVATE_KEY").unwrap();
+    let wallet: LocalWallet = key
+        .parse::<LocalWallet>()
+        .unwrap()
+        .with_chain_id(Chain::Moonbeam);
+    let client = SignerMiddleware::new(provider.clone(), wallet.clone());
+
+    let tup = get_ids().await;
+    let mut nfts: Vec<TokenLocal> = tup.1;
+
+    let mut scores: HashMap<String, f64> = HashMap::new();
+
+    let client_clone = client.clone();
+
+    unsafe {
+        for owner in GLOBAL_OWNERS.iter() {
+            let ok_owner = owner.clone();
+            if !scores.contains_key(&ok_owner) {
+                let current_address =
+                    get_nft_by_address_local(&client_clone, &mut nfts, &ok_owner).await;
+                let current_pts = current_address;
+                scores.insert(ok_owner, current_pts);
+            }
+        }
+    }
+
+    let mut sorted_scores: Vec<(&String, &f64)> = scores.iter().collect();
+
+    sorted_scores.sort_by(|a, b| {
+        let score_comparison = b.1.partial_cmp(a.1).unwrap();
+        if score_comparison == std::cmp::Ordering::Equal {
+            a.0.partial_cmp(b.0).unwrap()
+        } else {
+            score_comparison
+        }
+    });
+    let mut s = 0.;
+    for st in &sorted_scores {
+        s += st.1;
+    }
+    let mut result: Vec<String> = Vec::new();
+    for i in 0..sorted_scores.len() {
+        let reward = (wbgl().await * sorted_scores[i].1) / s;
+        let str_reward = format!("{}", reward);
+        result.push(format!("{}?{}", sorted_scores[i].0, str_reward));
+    }
+    let text = result.join(";");
+    HttpResponse::Ok()
+        .append_header(("Access-Control-Allow-Origin", "*"))
+        .json(text)
 }
 
 #[actix_web::main]
@@ -956,8 +1010,6 @@ async fn main() -> std::io::Result<()> {
     tokio::spawn(async {
         get_owners_local().await;
     });
-
-    println!("I'm working");
 
     HttpServer::new(|| {
         App::new()
@@ -968,6 +1020,7 @@ async fn main() -> std::io::Result<()> {
             .service(get_wbgl)
             .service(get_last_trade)
             .service(get_pages)
+            .service(get_payment)
     })
     .bind("0.0.0.0:8080")?
     .run()
