@@ -34,6 +34,6 @@ pub struct NewToken<'a> {
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct InfoPoint {
     pub hash: String,
-    pub wbgl:  Option<f64>
+    pub wbgl:  Option<i32>
 
 }

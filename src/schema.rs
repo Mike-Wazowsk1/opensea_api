@@ -3,7 +3,7 @@
 diesel::table! {
     info (hash) {
         hash -> Text,
-        wbgl -> Nullable<Float8>,
+        wbgl -> Nullable<Int4>,
     }
 }
 

@@ -995,7 +995,7 @@ async fn wbgl() -> f64 {
     let value = info.load::<InfoPoint>(connection).unwrap();
     let mm = value;
 
-    println!("{:?}",mm);
+    println!("WBGL : {:?}",mm);
 
     567.
 }
