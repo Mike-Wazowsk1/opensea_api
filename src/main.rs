@@ -286,11 +286,9 @@ async fn get_counts(
     for tok in &mut *nfts {
         let tmp = match U256::from_str_radix(&tok.id, 10) {
             Ok(x) => {
-                println!("All Ok! {:?} {:?}", x, tok);
                 x
             }
             Err(_e) => {
-                println!("Can't parse:{}", _e);
                 continue;
             }
         };
@@ -300,7 +298,6 @@ async fn get_counts(
         let tmp = match Address::from_str(&address) {
             Ok(x) => x,
             Err(x) => {
-                println!("Error: {}", x);
                 continue;
             }
         };
@@ -339,7 +336,6 @@ async fn get_counts_local(
         let tmp = match U256::from_str_radix(&tok.id, 10) {
             Ok(x) => x,
             Err(_e) => {
-                println!("Can't parse: {}", _e);
                 continue;
             }
         };
@@ -349,7 +345,6 @@ async fn get_counts_local(
         let tmp = match Address::from_str(&address) {
             Ok(x) => x,
             Err(x) => {
-                println!("Error: {}", x);
                 continue;
             }
         };
@@ -385,9 +380,7 @@ async fn get_collection_from_opensea() -> Result<NFTResponse, Box<dyn Error>> {
         .await?
         .text()
         .await?;
-    println!("string {:#?}", resp);
     let nfts: NFTResponse = serde_json::from_str(&resp)?;
-    println!("NFTS: {:#?} , Len: {}", nfts, nfts.nfts.len());
     Ok(nfts)
 }
 
@@ -454,7 +447,6 @@ async fn get_pts(tokens_arr: &Vec<TokenLocal>) -> f64 {
 
     let mut pts = 0.;
     let coef = multiplicator(tokens_arr).await;
-    println!("MULTIPLICATOR: {:?}", coef);
 
     for token in tokens_arr {
         let lvl = token.level.as_str();
@@ -601,7 +593,6 @@ async fn get_ids() -> (Vec<String>, Vec<TokenLocal>) {
     let nfts_t = match get_collection_from_opensea().await {
         Ok(x) => x,
         Err(_x) => {
-            println!("opensead blocked. Get Nfts from db");
             blocked = true;
             NFTResponse { nfts: Vec::new() }
         }
@@ -762,7 +753,6 @@ async fn get_owners_local() {
             let tmp_owners: OwnersResponse = match tmp_serde {
                 Ok(x) => x,
                 Err(x) => {
-                    println!("Err {}", x);
                     OwnersResponse {
                         owners: Vec::new(),
                         page_key: Option::None,
@@ -1047,7 +1037,6 @@ async fn get_owners_old() -> impl Responder {
     let nfts: Vec<TokenLocal> = make_nft_array(connection).await;
     let mut set = JoinSet::new();
     let mut handles = Vec::new();
-    println!("Len: {:?}", owners.owner_addresses.len());
 
     for addr in owners.owner_addresses {
         let mut nfts_clone: Vec<TokenLocal> = nfts.clone();
@@ -1058,8 +1047,6 @@ async fn get_owners_old() -> impl Responder {
             let s = match addr {
                 Some(x) => x,
                 None => {
-                    println!("ERROR");
-                    "".to_string()
                 }
             };
 
@@ -1121,7 +1108,6 @@ async fn get_nft(address: &web::Path<String>) -> ScanerResponse {
         if tmp.result.len() == 0 {
             break;
         }
-        println!("TMP: {:?}", tmp);
         for tx in tmp.result {
             tx_array.push(tx);
         }
