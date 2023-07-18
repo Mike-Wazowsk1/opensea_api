@@ -788,170 +788,124 @@ async fn get_owners_local() {
 
 #[get("/get_last_trade")]
 async fn get_last_trade() -> impl Responder {
-    // let provider = Provider::<Http>::try_from(MATICURL).unwrap();
-    // let key = env::var("PRIVATE_KEY").unwrap();
-    // let wallet: LocalWallet = key
-    //     .parse::<LocalWallet>()
-    //     .unwrap()
-    //     .with_chain_id(Chain::Moonbeam);
-    // let client = SignerMiddleware::new(provider.clone(), wallet.clone());
+    let connection = &mut establish_connection().await;
+    let value = info.load::<InfoPoint>(connection).unwrap();
+    let last_tx = value[0].hash.clone();
 
-    let tup = get_ids().await;
-    let token_ids = tup.0;
-    // let mut nfts: Vec<TokenLocal> = tup.1;
-    // let mut set: HashSet<String> = HashSet::new();
-    let mut max: U256 = U256::zero();
-    let mut last_tx = String::new();
+    // let tup = get_ids().await;
+    // let token_ids = tup.0;
+    // let mut max: U256 = U256::zero();
+    // let mut last_tx = String::new();
 
-    // let mut set = JoinSet::new();
+    // unsafe {
+    //     for owner in GLOBAL_OWNERS.iter() {
+    //         let tx_url =
+    //             "https://polygon-mainnet.g.alchemy.com/v2/lUgTmkM2_xJvUIF0dB1iFt0IQrqd4Haw";
 
-    // for tok in &token_ids {
-    //     if *tok == "NO_VALUE".to_string() {
-    //         continue;
-    //     }
-    //     // let scores_clone = scores;
-    //     let url = format!(
-    //             "https://polygon-mainnet.g.alchemy.com/nft/v2/lUgTmkM2_xJvUIF0dB1iFt0IQrqd4Haw/getOwnersForToken?contractAddress=0x2953399124F0cBB46d2CbACD8A89cF0599974963&tokenId={tok}",
-    //             tok = tok
-    //         );
-    //     let resp = reqwest::get(url).await;
-    //     let tmp_resp = match resp {
-    //         Ok(x) => x,
-    //         Err(_x) => panic!("Can't make request to alchemy"),
-    //     };
-    //     let resp_text = tmp_resp.text().await.unwrap();
+    //         let payload = RequestPayload {
+    //             id: 1,
+    //             jsonrpc: "2.0".to_string(),
+    //             method: "alchemy_getAssetTransfers".to_string(),
+    //             params: vec![RequestParam {
+    //                 from_block: "0x0".to_string(),
+    //                 to_block: "latest".to_string(),
+    //                 to_address: owner.to_string(),
+    //                 category: vec!["external".to_string(), "erc1155".to_string()],
+    //                 with_metadata: false,
+    //                 exclude_zero_value: true,
+    //                 max_count: "0x3e8".to_string(),
+    //                 contract_addresses: vec![
+    //                     "0x2953399124F0cBB46d2CbACD8A89cF0599974963".to_string()
+    //                 ],
+    //             }],
+    //         };
+    //         let client = reqwest::Client::new();
+    //         let response = client
+    //             .post(tx_url)
+    //             .json(&payload)
+    //             .header("accept", "application/json")
+    //             .header("content-type", "application/json")
+    //             .send()
+    //             .await;
 
-    //     let tmp_serde: Result<OwnersResponse, serde_json::Error> = serde_json::from_str(&resp_text);
-    //     let tmp_owners: OwnersResponse = match tmp_serde {
-    //         Ok(x) => x,
-    //         Err(x) => {
-    //             println!("Error MatchOwnerResponse {} {} {}", x, resp_text, tok);
-    //             OwnersResponse {
-    //                 owners: Vec::new(),
-    //                 page_key: Option::None,
+    //         let response_text = response.unwrap().text().await.unwrap();
+    //         let trnasfers: Result<TxHistoryResponse, serde_json::Error> =
+    //             serde_json::from_str(&response_text);
+    //         let history = match trnasfers {
+    //             Ok(x) => x,
+    //             Err(x) => {
+    //                 println!("Error matching TxHistoryResponse {} {}", x, response_text);
+    //                 continue;
     //             }
-    //         }
-    //     };
-
-    //     for owner in tmp_owners.owners {
-    //         let ok_owner = match owner {
+    //         };
+    //         let result = match history.result {
     //             Some(x) => x,
     //             None => continue,
     //         };
-    //         if !set.contains(&ok_owner) {
-    //             set.insert(ok_owner);
+    //         let transfers = result.transfers;
+
+    //         for tr in transfers {
+    //             match tr.erc1155_metadata {
+    //                 Some(x) => {
+    //                     let mut cur_tokens: Vec<String> = Vec::new();
+    //                     for t in x {
+    //                         let token_id = match t.token_id {
+    //                             Some(x) => {
+    //                                 let without_prefix = x.trim_start_matches("0x");
+    //                                 let z = match U256::from_str_radix(without_prefix, 16) {
+    //                                     Ok(x) => x,
+    //                                     Err(x) => {
+    //                                         println!("Error parse blockNum {}", x);
+    //                                         continue;
+    //                                     }
+    //                                 };
+    //                                 format!("{}", z)
+    //                             }
+    //                             None => continue,
+    //                         };
+    //                         cur_tokens.push(token_id);
+    //                     }
+    //                     let mut contains = false;
+    //                     'outer: for ct in &cur_tokens {
+    //                         for ti in &token_ids {
+    //                             if ti == ct {
+    //                                 contains = true;
+    //                                 break 'outer;
+    //                             }
+    //                         }
+    //                     }
+
+    //                     if contains {
+    //                         let cur_block = match tr.block_num {
+    //                             Some(x) => {
+    //                                 let without_prefix = x.trim_start_matches("0x");
+    //                                 let z = match U256::from_str_radix(without_prefix, 16) {
+    //                                     Ok(x) => x,
+    //                                     Err(x) => {
+    //                                         println!("Error parse blockNum {}", x);
+    //                                         continue;
+    //                                     }
+    //                                 };
+    //                                 z
+    //                             }
+    //                             None => continue,
+    //                         };
+    //                         if cur_block > max {
+    //                             match tr.hash {
+    //                                 Some(x) => {
+    //                                     last_tx = x;
+    //                                     max = cur_block;
+    //                                 }
+    //                                 None => continue,
+    //                             };
+    //                         }
+    //                     }
+    //                 }
+    //                 None => continue,
+    //             }
     //         }
     //     }
     // }
-    unsafe {
-        for owner in GLOBAL_OWNERS.iter() {
-            let tx_url =
-                "https://polygon-mainnet.g.alchemy.com/v2/lUgTmkM2_xJvUIF0dB1iFt0IQrqd4Haw";
-
-            let payload = RequestPayload {
-                id: 1,
-                jsonrpc: "2.0".to_string(),
-                method: "alchemy_getAssetTransfers".to_string(),
-                params: vec![RequestParam {
-                    from_block: "0x0".to_string(),
-                    to_block: "latest".to_string(),
-                    to_address: owner.to_string(),
-                    category: vec!["external".to_string(), "erc1155".to_string()],
-                    with_metadata: false,
-                    exclude_zero_value: true,
-                    max_count: "0x3e8".to_string(),
-                    contract_addresses: vec![
-                        "0x2953399124F0cBB46d2CbACD8A89cF0599974963".to_string()
-                    ],
-                }],
-            };
-            let client = reqwest::Client::new();
-            let response = client
-                .post(tx_url)
-                .json(&payload)
-                .header("accept", "application/json")
-                .header("content-type", "application/json")
-                .send()
-                .await;
-
-            let response_text = response.unwrap().text().await.unwrap();
-            let trnasfers: Result<TxHistoryResponse, serde_json::Error> =
-                serde_json::from_str(&response_text);
-            let history = match trnasfers {
-                Ok(x) => x,
-                Err(x) => {
-                    println!("Error matching TxHistoryResponse {} {}", x, response_text);
-                    continue;
-                }
-            };
-            let result = match history.result {
-                Some(x) => x,
-                None => continue,
-            };
-            let transfers = result.transfers;
-
-            for tr in transfers {
-                match tr.erc1155_metadata {
-                    Some(x) => {
-                        let mut cur_tokens: Vec<String> = Vec::new();
-                        for t in x {
-                            let token_id = match t.token_id {
-                                Some(x) => {
-                                    let without_prefix = x.trim_start_matches("0x");
-                                    let z = match U256::from_str_radix(without_prefix, 16) {
-                                        Ok(x) => x,
-                                        Err(x) => {
-                                            println!("Error parse blockNum {}", x);
-                                            continue;
-                                        }
-                                    };
-                                    format!("{}", z)
-                                }
-                                None => continue,
-                            };
-                            cur_tokens.push(token_id);
-                        }
-                        let mut contains = false;
-                        'outer: for ct in &cur_tokens {
-                            for ti in &token_ids {
-                                if ti == ct {
-                                    contains = true;
-                                    break 'outer;
-                                }
-                            }
-                        }
-
-                        if contains {
-                            let cur_block = match tr.block_num {
-                                Some(x) => {
-                                    let without_prefix = x.trim_start_matches("0x");
-                                    let z = match U256::from_str_radix(without_prefix, 16) {
-                                        Ok(x) => x,
-                                        Err(x) => {
-                                            println!("Error parse blockNum {}", x);
-                                            continue;
-                                        }
-                                    };
-                                    z
-                                }
-                                None => continue,
-                            };
-                            if cur_block > max {
-                                match tr.hash {
-                                    Some(x) => {
-                                        last_tx = x;
-                                        max = cur_block;
-                                    }
-                                    None => continue,
-                                };
-                            }
-                        }
-                    }
-                    None => continue,
-                }
-            }
-        }
-    }
     let href = format!("https://polygonscan.com/tx/{last_tx}");
 
     let response = LastTradeResponse {
@@ -993,11 +947,7 @@ async fn get_pages(limit: web::Path<i32>) -> impl Responder {
 async fn wbgl() -> f64 {
     let connection = &mut establish_connection().await;
     let value = info.load::<InfoPoint>(connection).unwrap();
-    let mm = value;
-
-    println!("WBGL : {:?}",mm);
-
-    567.
+    value[0].wbgl.unwrap() as f64
 }
 
 #[actix_web::main]
@@ -1099,7 +1049,6 @@ async fn get_nft(address: &web::Path<String>) -> ScanerResponse {
         Ok(client) => client,
         Err(_err) => return result,
     };
-    // let mut link = "https://api.etherscan.io/api?module=account&action=tokennfttx&address=0x567A623433D503183Fb383493FdB12A4780e2F60&page=1&offset=100&startblock=0&sort=asc&apikey=YourApiKeyToken".to_string();
 
     loop {
         let link = format!(
