@@ -29,11 +29,11 @@ RUN cargo build --release
 
 #RUN diesel setup
 #RUN diesel migration run
-RUN apt-get install nginx
-RUN service nginx start
-RUN iptables -I INPUT -p tcp -m tcp --dport 80 -j ACCEPT
-RUN  iptables -I INPUT -p tcp -m tcp --dport 443 -j ACCEPT
-RUN sudo chmod 700 /etc/ssl/private
+# RUN apt-get install nginx
+# RUN service nginx start
+# RUN iptables -I INPUT -p tcp -m tcp --dport 80 -j ACCEPT
+# RUN  iptables -I INPUT -p tcp -m tcp --dport 443 -j ACCEPT
+# RUN sudo chmod 700 /etc/ssl/private
 
 
 
