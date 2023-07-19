@@ -13,8 +13,6 @@ use ethers::providers::{Http, Provider};
 use once_cell::sync::Lazy;
 use opensea_api::models::{InfoPoint, NewToken, Token};
 use opensea_api::*;
-use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
-
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::str::FromStr;
@@ -996,11 +994,6 @@ async fn main() -> std::io::Result<()> {
     tokio::spawn(async {
         get_owners_local().await;
     });
-    let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
-    builder
-        .set_private_key_file("key.pem", SslFiletype::PEM)
-        .unwrap();
-    builder.set_certificate_chain_file("cert.pem").unwrap();
 
     HttpServer::new(|| {
         App::new()
@@ -1013,7 +1006,7 @@ async fn main() -> std::io::Result<()> {
             .service(get_pages)
             .service(get_payment)
     })
-    .bind_openssl("0.0.0.0:8080",builder)?
+    .bind("0.0.0.0:8080")?
     .run()
     .await
 }
