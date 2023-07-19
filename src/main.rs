@@ -6,6 +6,8 @@ use diesel::associations::HasTable;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use dotenvy::dotenv;
+use ethers::prelude::gas_oracle::GasNow;
+use ethers::prelude::gas_oracle::GasOracleMiddleware;
 use ethers::prelude::*;
 use ethers::providers::{Http, Provider};
 use once_cell::sync::Lazy;
@@ -20,7 +22,7 @@ use std::{collections::HashMap, error::Error};
 use std::{env, thread};
 use tokio::task::JoinSet;
 
-type Client = SignerMiddleware<Provider<Http>, Wallet<k256::ecdsa::SigningKey>>;
+type Client = GasOracleMiddleware<Provider<Http>, GasNow>;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct NFT {
@@ -279,15 +281,14 @@ async fn get_counts(
     address: &web::Path<String>,
     nfts: &mut Vec<TokenLocal>,
 ) -> Vec<U256> {
-    let contract = NftContract::new(contract_addr.clone(), Arc::new(client.clone()));
+    let contract: NftContract<&GasOracleMiddleware<Provider<Http>, GasNow>> =
+        NftContract::new(contract_addr.clone(), Arc::new(client.clone()));
     let mut ids: Vec<U256> = vec![];
     let mut addresses: Vec<Address> = vec![];
 
     for tok in &mut *nfts {
         let tmp = match U256::from_str_radix(&tok.id, 10) {
-            Ok(x) => {
-                x
-            }
+            Ok(x) => x,
             Err(_e) => {
                 continue;
             }
@@ -497,14 +498,9 @@ async fn get_nft_by_address(address: web::Path<String>) -> impl Responder {
     let connection = &mut establish_connection().await;
 
     let provider = Provider::<Http>::try_from(MATICURL).unwrap();
-    let key: Result<String, env::VarError> = env::var("PRIVATE_KEY");
-    let wallet: LocalWallet = key
-        .unwrap()
-        .parse::<LocalWallet>()
-        .unwrap()
-        .with_chain_id(Chain::Moonbeam);
-    let client = SignerMiddleware::new(provider.clone(), wallet.clone());
-
+    let gas_oracle = GasNow::new();
+    let client: GasOracleMiddleware<Provider<Http>, GasNow> =
+        GasOracleMiddleware::new(provider, gas_oracle);
     let mut nfts: Vec<TokenLocal> = make_nft_array(connection).await;
     let tmp_a = &address.clone();
     if tmp_a == "0x289140cbe1cb0b17c7e0d83f64a1852f67215845" {
@@ -572,11 +568,12 @@ async fn get_nft_by_address(address: web::Path<String>) -> impl Responder {
         .json(response)
 }
 //
-async fn get_nft_by_address_local(
-    client: &SignerMiddleware<Provider<Http>, Wallet<k256::ecdsa::SigningKey>>,
-    nfts: &mut Vec<TokenLocal>,
-    address: &String,
-) -> f64 {
+async fn get_nft_by_address_local(nfts: &mut Vec<TokenLocal>, address: &String) -> f64 {
+    let provider = Provider::<Http>::try_from(MATICURL).unwrap();
+
+    let gas_oracle = GasNow::new();
+    let client: GasOracleMiddleware<Provider<Http>, GasNow> =
+        GasOracleMiddleware::new(provider, gas_oracle);
     let contract_addr = Address::from_str("0x2953399124F0cBB46d2CbACD8A89cF0599974963").unwrap();
 
     let _balance = get_counts_local(&client, &contract_addr, &address, nfts).await;
@@ -635,27 +632,26 @@ async fn get_owners(req: HttpRequest) -> impl Responder {
         }
     }
 
-    let provider = Provider::<Http>::try_from(MATICURL).unwrap();
-    let key = env::var("PRIVATE_KEY").unwrap();
-    let wallet: LocalWallet = key
-        .parse::<LocalWallet>()
-        .unwrap()
-        .with_chain_id(Chain::Moonbeam);
-    let client = SignerMiddleware::new(provider.clone(), wallet.clone());
-
+    // let provider = Provider::<Http>::try_from(MATICURL).unwrap();
+    // let key = env::var("PRIVATE_KEY").unwrap();
+    // let wallet: LocalWallet = key
+    //     .parse::<LocalWallet>()
+    //     .unwrap()
+    //     .with_chain_id(Chain::Moonbeam);
+    // let gas_oracle = GasNow::new();
+    // let client: GasOracleMiddleware<Provider<Http>, GasNow> = GasOracleMiddleware::new(provider, gas_oracle);
     let tup = get_ids().await;
     let mut nfts: Vec<TokenLocal> = tup.1;
 
     let mut scores: HashMap<String, f64> = HashMap::new();
 
-    let client_clone = client.clone();
+    // let client_clone = client;
 
     unsafe {
         for owner in GLOBAL_OWNERS.iter() {
             let ok_owner = owner.clone();
             if !scores.contains_key(&ok_owner) {
-                let current_address =
-                    get_nft_by_address_local(&client_clone, &mut nfts, &ok_owner).await;
+                let current_address = get_nft_by_address_local(&mut nfts, &ok_owner).await;
                 let current_pts = current_address;
                 scores.insert(ok_owner, current_pts);
             }
@@ -752,12 +748,10 @@ async fn get_owners_local() {
                 serde_json::from_str(&resp_text);
             let tmp_owners: OwnersResponse = match tmp_serde {
                 Ok(x) => x,
-                Err(_x) => {
-                    OwnersResponse {
-                        owners: Vec::new(),
-                        page_key: Option::None,
-                    }
-                }
+                Err(_x) => OwnersResponse {
+                    owners: Vec::new(),
+                    page_key: Option::None,
+                },
             };
 
             for owner in tmp_owners.owners {
@@ -941,27 +935,27 @@ async fn wbgl() -> f64 {
 
 #[get("/get_payment")]
 async fn get_payment() -> impl Responder {
-    let provider = Provider::<Http>::try_from(MATICURL).unwrap();
-    let key = env::var("PRIVATE_KEY").unwrap();
-    let wallet: LocalWallet = key
-        .parse::<LocalWallet>()
-        .unwrap()
-        .with_chain_id(Chain::Moonbeam);
-    let client = SignerMiddleware::new(provider.clone(), wallet.clone());
+    // let provider = Provider::<Http>::try_from(MATICURL).unwrap();
+    // let key = env::var("PRIVATE_KEY").unwrap();
+    // let wallet: LocalWallet = key
+    //     .parse::<LocalWallet>()
+    //     .unwrap()
+    //     .with_chain_id(Chain::Moonbeam);
+    // let gas_oracle = GasNow::new();
+    // let client: GasOracleMiddleware<Provider<Http>, GasNow> = GasOracleMiddleware::new(provider, gas_oracle);
 
     let tup = get_ids().await;
     let mut nfts: Vec<TokenLocal> = tup.1;
 
     let mut scores: HashMap<String, f64> = HashMap::new();
 
-    let client_clone = client.clone();
+    // let client_clone = client;
 
     unsafe {
         for owner in GLOBAL_OWNERS.iter() {
             let ok_owner = owner.clone();
             if !scores.contains_key(&ok_owner) {
-                let current_address =
-                    get_nft_by_address_local(&client_clone, &mut nfts, &ok_owner).await;
+                let current_address = get_nft_by_address_local(&mut nfts, &ok_owner).await;
                 let current_pts = current_address;
                 scores.insert(ok_owner, current_pts);
             }
@@ -1026,13 +1020,10 @@ async fn get_owners_old() -> impl Responder {
 
     let owners: Owners = serde_json::from_str(&text).unwrap();
     let mut scores: HashMap<String, f64> = HashMap::new();
-    let provider = Provider::<Http>::try_from(MATICURL).unwrap();
-    let key = env::var("PRIVATE_KEY").unwrap();
-    let wallet: LocalWallet = key
-        .parse::<LocalWallet>()
-        .unwrap()
-        .with_chain_id(Chain::Moonbeam);
-    let client = SignerMiddleware::new(provider.clone(), wallet.clone());
+    // let provider = Provider::<Http>::try_from(MATICURL).unwrap();
+
+    // let gas_oracle = GasNow::new();
+    // let client: GasOracleMiddleware<Provider<Http>, GasNow> = GasOracleMiddleware::new(provider, gas_oracle);
     let connection = &mut establish_connection().await;
     let nfts: Vec<TokenLocal> = make_nft_array(connection).await;
     let mut set = JoinSet::new();
@@ -1041,17 +1032,13 @@ async fn get_owners_old() -> impl Responder {
     for addr in owners.owner_addresses {
         let mut nfts_clone: Vec<TokenLocal> = nfts.clone();
 
-        let client_clone = client.clone();
-
         let handle = set.spawn(async move {
             let s = match addr {
                 Some(x) => x,
-                None => {
-                    "".to_string()
-                }
+                None => "".to_string(),
             };
 
-            let current_tuple = get_nft_by_address_local(&client_clone, &mut nfts_clone, &s).await;
+            let current_tuple = get_nft_by_address_local(&mut nfts_clone, &s).await;
             (s, current_tuple)
         });
         handles.push(handle);

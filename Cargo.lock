@@ -2263,6 +2263,7 @@ dependencies = [
  "dotenvy",
  "ethers",
  "once_cell",
+ "openssl",
  "reqwest",
  "serde",
  "serde_json",
