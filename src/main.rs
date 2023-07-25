@@ -767,7 +767,7 @@ async fn get_owners_local() {
                 }
             }
         }
-        thread::sleep(Duration::from_millis(120000));
+        thread::sleep(Duration::from_millis(300000));
     }
 }
 
