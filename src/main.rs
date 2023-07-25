@@ -740,7 +740,8 @@ async fn get_owners_local() {
             let resp = reqwest::get(url).await;
             let tmp_resp = match resp {
                 Ok(x) => x,
-                Err(_x) => panic!("Can't make request to alchemy"),
+                Err(x) => {println!("Can't make request to alchemy {:?}",x);
+                continue}
             };
             let resp_text = tmp_resp.text().await.unwrap();
 
