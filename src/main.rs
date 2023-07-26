@@ -891,7 +891,7 @@ async fn get_last_trade() -> impl Responder {
     //         }
     //     }
     // }
-    let href = format!("https://polygonscan.com/tx/{last_tx}");
+    let href = format!("https://bscscan.com/tx/{last_tx}");
 
     let response = LastTradeResponse {
         hash: last_tx,
