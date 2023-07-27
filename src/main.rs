@@ -533,11 +533,8 @@ async fn get_nft_by_address(address: web::Path<String>) -> impl Responder {
     let contract_addr = Address::from_str("0x2953399124F0cBB46d2CbACD8A89cF0599974963").unwrap();
 
     let _balance = get_counts(&client, &contract_addr, &address, &mut nfts).await;
-    println!("NFTS: {:?}",nfts);
     let sum_pts = get_pts(&nfts).await;
-    println!("NFTS: {:?}",nfts);
     let pts_by_grade = get_pts_by_grade(&nfts).await;
-    println!("NFTS: {:?}",nfts);
     let mut res: Vec<TokenLocalTmp> = Vec::new();
 
     for token_local in &nfts {
