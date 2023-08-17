@@ -582,7 +582,6 @@ async fn get_owners_local() {
                     page_key: Option::None,
                 },
             };
-            println!("{:?}", tmp_owners);
 
             for owner in tmp_owners.owners {
                 let ok_owner = match owner {
@@ -785,7 +784,6 @@ async fn get_payment(
     let contract_addr = Address::from_str("0x2953399124F0cBB46d2CbACD8A89cF0599974963").unwrap();
 
     // let tup = get_ids(&mut connection).await;
-    println!("get_ids: {:?}", start_time.elapsed());
 
     // let mut nfts: Vec<structs::TokenLocal> = tup.1;
 
@@ -823,7 +821,6 @@ async fn get_payment(
             scores.insert(ok_owner, current_pts);
         }
     }
-    println!("get_nft_by_address_local: {:?}", start_time.elapsed());
 
     let mut sorted_scores: Vec<(&String, &f64)> = scores.iter().collect();
 
@@ -835,7 +832,6 @@ async fn get_payment(
             score_comparison
         }
     });
-    println!("sort_by: {:?}", start_time.elapsed());
 
     let mut s = 0.;
     for st in &sorted_scores {
@@ -844,13 +840,11 @@ async fn get_payment(
     let mut result: Vec<String> = Vec::new();
     for i in 0..sorted_scores.len() {
         let reward = (wbgl(&mut connection).await * sorted_scores[i].1) / s;
-        println!("reward: {:?}", start_time.elapsed());
 
         let str_reward = format!("{}", reward);
         result.push(format!("{}?{}", sorted_scores[i].0, str_reward));
     }
     let text = result.join(";");
-    println!("result: {:?}", start_time.elapsed());
 
     HttpResponse::Ok()
         .append_header(("Access-Control-Allow-Origin", "*"))
