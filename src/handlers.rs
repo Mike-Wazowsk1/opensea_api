@@ -94,7 +94,7 @@ pub async fn get_tickets(
             // .luminosity(Luminosity::Light) // Optional
             // .seed(42) // Optional
             // .alpha(1.0) // Optional
-            .to_rgb_string();
+            .to_hex();
         colors.insert(
             i,
             structs::TicketInfo {
