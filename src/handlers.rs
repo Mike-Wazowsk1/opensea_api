@@ -184,14 +184,14 @@ pub async fn get_owners(
             result.push(structs::Fun2Response {
                 address: sorted_scores[i].0.to_string(),
                 score: sorted_scores[i].1,
-                reward,
+                reward:reward as i64,
             });
         } else {
             if sorted_scores[i].0.to_string() == search {
                 result.push(structs::Fun2Response {
                     address: sorted_scores[i].0.to_string(),
                     score: sorted_scores[i].1,
-                    reward,
+                    reward:reward as i64,
                 });
             }
         }
@@ -207,7 +207,7 @@ pub async fn get_owners(
     page = page - 1;
     let cur_index: i32 = limit * page as i32;
     let mut j = 0;
-    if limit == 0 {
+    if limit == 0 { 
         limit = sorted_scores.len() as i32;
     }
     // let connection: &mut PgConnection = &mut establish_connection().await;
@@ -216,7 +216,7 @@ pub async fn get_owners(
         final_result.push(structs::Fun2Response {
             address: sorted_scores[i].0.to_string(),
             score: sorted_scores[i].1,
-            reward,
+            reward:reward as i64,
         });
         j += 1;
         if j == limit {

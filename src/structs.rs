@@ -118,7 +118,7 @@ pub struct Fun1Response {
 pub struct Fun2Response {
     pub address: String,
     pub score: f64,
-    pub reward: f64,
+    pub reward: i64,
 }
 
 #[derive(Serialize, Deserialize)]
