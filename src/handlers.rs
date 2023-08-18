@@ -60,6 +60,44 @@ pub async fn get_lucky_hash() -> impl Responder {
 }
 
 
+#[get("/get_tickets")]
+pub async fn get_tickets(pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,
+    cache: web::Data<Cache<String, f64>>) -> impl Responder {
+    let mut sorted_scores: Vec<(Arc<String>, f64)> = cache.iter().collect();
+    let mut connection = pool.get().unwrap();
+
+    
+
+    let wbgl_points = utils::wbgl(&mut connection).await;
+
+    sorted_scores.sort_by(|a, b| {
+        let score_comparison = b.1.partial_cmp(&a.1).unwrap();
+        if score_comparison == std::cmp::Ordering::Equal {
+            (*a.0).partial_cmp(&(*b.0)).unwrap()
+        } else {
+            score_comparison
+        }
+    });
+    let mut sum_wbgl = 0.;
+    let mut ticket_weight = utils::get_ticket_weight(sum_wbgl).await;
+    let mut ticket_count =utils::get_ticket_count(sum_wbgl).await;
+    let mut tickets = utils::get_ticket_array(ticket_count).await;
+    for st in &sorted_scores {
+        sum_wbgl += st.1;
+    }
+
+
+
+
+
+    HttpResponse::Ok()
+    .append_header(("Access-Control-Allow-Origin", "*"))
+    .json(tickets)   
+    
+
+}
+
+
 #[get("/get_owners")]
 pub async fn get_owners(
     req: HttpRequest,
@@ -122,7 +160,6 @@ pub async fn get_owners(
 
     let mut sorted_scores: Vec<(Arc<String>, f64)> = cache.iter().collect();
 
-    let wbgl_point = utils::wbgl(&mut connection).await;
 
     sorted_scores.sort_by(|a, b| {
         let score_comparison = b.1.partial_cmp(&a.1).unwrap();
@@ -132,15 +169,17 @@ pub async fn get_owners(
             score_comparison
         }
     });
-    let mut s = 0.;
+    let mut sum_wbgl = 0.;
     for st in &sorted_scores {
-        s += st.1;
+        sum_wbgl += st.1;
     }
+
+    let wbgl_points = utils::get_ticket_weight(sum_wbgl).await;
 
     let mut result = Vec::new();
 
     for i in 0..sorted_scores.len() {
-        let reward = (wbgl_point * sorted_scores[i].1) / s;
+        let reward = (wbgl_points * sorted_scores[i].1) / sum_wbgl;
         if search == "" {
             result.push(structs::Fun2Response {
                 address: sorted_scores[i].0.to_string(),
@@ -173,7 +212,7 @@ pub async fn get_owners(
     }
     // let connection: &mut PgConnection = &mut establish_connection().await;
     for i in cur_index as usize..sorted_scores.len() {
-        let reward = (wbgl_point * sorted_scores[i].1) / s;
+        let reward = (wbgl_points * sorted_scores[i].1) / sum_wbgl;
         final_result.push(structs::Fun2Response {
             address: sorted_scores[i].0.to_string(),
             score: sorted_scores[i].1,
@@ -280,13 +319,13 @@ pub async fn get_payment(
         }
     });
 
-    let mut s = 0.;
+    let mut sum_wbgl = 0.;
     for st in &sorted_scores {
-        s += st.1;
+        sum_wbgl += st.1;
     }
     let mut result: Vec<String> = Vec::new();
     for i in 0..sorted_scores.len() {
-        let reward = (wgbl_score * sorted_scores[i].1) / s;
+        let reward = (wgbl_score * sorted_scores[i].1) / sum_wbgl;
 
         let str_reward = format!("{}", reward);
         result.push(format!("{}?{}", sorted_scores[i].0, str_reward));

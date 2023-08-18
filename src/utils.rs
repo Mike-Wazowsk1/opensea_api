@@ -378,3 +378,33 @@ pub async fn wbgl(connection: &mut PgConnection) -> f64 {
     let value = info.load::<InfoPoint>(connection).unwrap();
     value[0].wbgl.unwrap() as f64
 }
+
+pub async fn get_ticket_count(sum_wbgl:f64)->i32{
+    if sum_wbgl>=10_000.{
+        return 100_000
+    }
+    if sum_wbgl>=1_000.{
+        return 10_000
+
+    }
+    1_000
+
+}
+
+pub async fn get_ticket_weight(sum_wbgl:f64) -> f64{
+    if sum_wbgl >= 10_000. && sum_wbgl < 75_000.{
+        return 75_000./sum_wbgl;
+    }
+    if sum_wbgl >= 1_000. && sum_wbgl < 7_500.{
+        return 7_500./sum_wbgl
+    }
+    if sum_wbgl < 750.{
+        return 750./sum_wbgl
+    }
+    1.
+
+
+}
+pub async fn get_ticket_array(ticket_count:i32)->Vec<i32>{
+    vec![-1;ticket_count as usize]
+}

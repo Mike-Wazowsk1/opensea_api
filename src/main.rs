@@ -11,7 +11,7 @@ mod utils;
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv::dotenv().ok();
-    let bgl = "http//127.0.0.1:8454";
+    // let bgl = "https//127.0.0.1:8332";
     let cache: Cache<String, f64> = Cache::new(10_000);
     let clonned_cache = cache.clone();
     tokio::spawn(async move {
@@ -25,7 +25,7 @@ async fn main() -> std::io::Result<()> {
         .build(manager)
         .expect("Could not build connection pool");
 
-    let provider: Provider<Http> = Provider::<Http>::try_from(bgl).unwrap();
+    let provider: Provider<Http> = Provider::<Http>::try_from("NO").unwrap();
 
     HttpServer::new(move || {
         App::new()
