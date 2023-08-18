@@ -61,8 +61,10 @@ pub async fn get_lucky_hash() -> impl Responder {
 }
 
 #[get("/get_tickets_count")]
-pub async fn get_tickets_count(    pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,
-    cache: web::Data<Cache<String, f64>>,) -> impl Responder {
+pub async fn get_tickets_count(
+    pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,
+    cache: web::Data<Cache<String, f64>>,
+) -> impl Responder {
     let mut sorted_scores: Vec<(Arc<String>, f64)> = cache.iter().collect();
     sorted_scores.sort_by(|a, b| {
         let score_comparison = b.1.partial_cmp(&a.1).unwrap();
@@ -78,13 +80,11 @@ pub async fn get_tickets_count(    pool: web::Data<r2d2::Pool<ConnectionManager<
     }
 
     let ticket_count = utils::get_ticket_count(sum_wbgl).await;
-    
+
     HttpResponse::Ok()
-    .append_header(("Access-Control-Allow-Origin", "*"))
-    .json(ticket_count)
+        .append_header(("Access-Control-Allow-Origin", "*"))
+        .json(ticket_count)
 }
-
-
 
 #[get("/get_tickets")]
 pub async fn get_tickets(
@@ -116,11 +116,8 @@ pub async fn get_tickets(
     let mut ticket_count = utils::get_ticket_count(sum_wbgl).await;
 
     let mut tickets = utils::get_ticket_array(ticket_count).await;
-    let sequence = utils::generate_sequence(sum_wbgl,ticket_count).await;
+    let sequence = utils::generate_sequence(sum_wbgl, ticket_count).await;
 
-
-
-    
     sorted_scores.iter().for_each(|(address, score)| {
         let color = RandomColor::new()
             // .hue(Color::Blue) // Optional
@@ -132,27 +129,25 @@ pub async fn get_tickets(
             i,
             structs::TicketInfo {
                 address: address.to_string(),
-                color: color
+                color: color,
             },
         );
-        let tickets_for_user = (ticket_weight*score) as i32;
-        for _j in 0..tickets_for_user{
+        let tickets_for_user = (ticket_weight * score) as i32;
+        for _j in 0..tickets_for_user {
             tickets[sequence[j as usize] as usize] = i;
-            j+=1;
-
+            j += 1;
         }
-        
 
-
-        i+=1;
-
+        i += 1;
     });
-    let resp =structs::TicketResponse{tickets,map:colors};
-    
+    let resp = structs::TicketResponse {
+        tickets,
+        map: colors,
+    };
 
     HttpResponse::Ok()
         .append_header(("Access-Control-Allow-Origin", "*"))
-        .json(resp  )
+        .json(resp)
 }
 
 #[get("/get_owners")]

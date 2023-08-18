@@ -5,8 +5,8 @@ use actix_web::web;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use dotenvy::dotenv;
-use ethers::prelude::*;
 use ethers::prelude::rand::seq::SliceRandom;
+use ethers::prelude::*;
 use ethers::providers::{Http, Provider};
 use moka::sync::Cache;
 use opensea_api::models::{InfoPoint, Token};
@@ -394,14 +394,14 @@ pub async fn get_ticket_count(sum_wbgl: f64) -> i32 {
 }
 
 pub async fn get_ticket_weight(sum_wbgl: f64) -> f64 {
-    if sum_wbgl >= 10_000. && sum_wbgl < 75_000. {
-        return 75_000. / sum_wbgl;
+    if sum_wbgl >= 10_000. && sum_wbgl < 70_000. {
+        return 70_000. / sum_wbgl;
     }
-    if sum_wbgl >= 1_000. && sum_wbgl < 7_500. {
-        return 7_500. / sum_wbgl;
+    if sum_wbgl >= 1_000. && sum_wbgl < 7_000. {
+        return 7_000. / sum_wbgl;
     }
-    if sum_wbgl < 750. {
-        return 750. / sum_wbgl;
+    if sum_wbgl < 700. {
+        return 700. / sum_wbgl;
     }
     1.
 }
@@ -415,8 +415,21 @@ fn calculate_hash<T: Hash>(t: &T) -> u64 {
     s.finish()
 }
 
-pub async fn generate_sequence(data: f64,size:i32) ->Vec<i32>{
-    let state = calculate_hash(&(data as i32));
+pub async fn generate_sequence(data: f64, size: i32) -> Vec<i32> {
+    let w = get_ticket_weight(data).await;
+    let mut data_clone = data.clone();
+    if w == 1. {
+        if data > 1000. && data < 10_000. {
+            data_clone = 7_000.
+        }
+        if data > 10_000. {
+            data_clone = 70_000.
+        }
+        if data < 1000. {
+            data_clone = 700.
+        }
+    }
+    let state = calculate_hash(&(data_clone as i32));
     let mut r = <rand::rngs::StdRng as rand::SeedableRng>::seed_from_u64(state);
     let mut sequence = vec![];
 
