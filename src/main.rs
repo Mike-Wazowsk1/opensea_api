@@ -11,7 +11,7 @@ mod utils;
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv::dotenv().ok();
-    let bgl = "https//127.0.0.1:8454";
+    let bgl = "http//127.0.0.1:8454";
     let cache: Cache<String, f64> = Cache::new(10_000);
     let clonned_cache = cache.clone();
     tokio::spawn(async move {
