@@ -28,6 +28,38 @@ pub async fn get_nfts() -> impl Responder {
     }
 }
 
+
+#[get("/get_blockchain_data")]
+pub async fn get_blockchain_data(pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,bgl_provider:web::Data<Provider<Http>>) -> impl Responder {
+    let connection = pool.get().unwrap();
+
+    let current_block = bgl_provider.get_block_number().await.unwrap();
+    HttpResponse::Ok()
+    .append_header(("Access-Control-Allow-Origin", "*"))
+    .json(current_block)
+
+
+}
+#[get("/get_last_winners")]
+pub async fn get_last_winners() -> impl Responder {
+    match utils::get_collection_from_opensea().await {
+        Ok(nfts) => HttpResponse::Ok()
+            .append_header(("Access-Control-Allow-Origin", "*"))
+            .json(nfts),
+        Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
+    }
+}
+#[get("/get_lucky_hash")]
+pub async fn get_lucky_hash() -> impl Responder {
+    match utils::get_collection_from_opensea().await {
+        Ok(nfts) => HttpResponse::Ok()
+            .append_header(("Access-Control-Allow-Origin", "*"))
+            .json(nfts),
+        Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
+    }
+}
+
+
 #[get("/get_owners")]
 pub async fn get_owners(
     req: HttpRequest,
