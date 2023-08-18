@@ -179,7 +179,7 @@ pub async fn get_owners(
     let mut result = Vec::new();
 
     for i in 0..sorted_scores.len() {
-        let reward = (wbgl_points * sorted_scores[i].1) / sum_wbgl;
+        let reward = (wbgl_points * sorted_scores[i].1);
         if search == "" {
             result.push(structs::Fun2Response {
                 address: sorted_scores[i].0.to_string(),
@@ -212,7 +212,7 @@ pub async fn get_owners(
     }
     // let connection: &mut PgConnection = &mut establish_connection().await;
     for i in cur_index as usize..sorted_scores.len() {
-        let reward = (wbgl_points * sorted_scores[i].1) / sum_wbgl;
+        let reward = (wbgl_points * sorted_scores[i].1);
         final_result.push(structs::Fun2Response {
             address: sorted_scores[i].0.to_string(),
             score: sorted_scores[i].1,
