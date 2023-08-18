@@ -86,6 +86,8 @@ pub async fn get_tickets(
     let mut ticket_weight = utils::get_ticket_weight(sum_wbgl).await;
     let mut ticket_count = utils::get_ticket_count(sum_wbgl).await;
     let mut tickets = utils::get_ticket_array(ticket_count).await;
+
+    
     sorted_scores.iter().for_each(|(address, score)| {
         let color = RandomColor::new()
             // .hue(Color::Blue) // Optional
@@ -102,10 +104,12 @@ pub async fn get_tickets(
         );
         i+=1;
     });
+    let resp =structs::TicketResponse{tickets,map:colors};
+    
 
     HttpResponse::Ok()
         .append_header(("Access-Control-Allow-Origin", "*"))
-        .json(colors)
+        .json(resp  )
 }
 
 #[get("/get_owners")]
