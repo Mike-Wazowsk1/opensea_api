@@ -100,6 +100,7 @@ pub async fn get_tickets(
                 color: color
             },
         );
+        i+=1;
     });
 
     HttpResponse::Ok()
