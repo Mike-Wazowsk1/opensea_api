@@ -6,6 +6,7 @@ use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use dotenvy::dotenv;
 use ethers::prelude::*;
+use ethers::prelude::rand::seq::SliceRandom;
 use ethers::providers::{Http, Provider};
 use moka::sync::Cache;
 use opensea_api::models::{InfoPoint, Token};
@@ -15,6 +16,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::structs;
+use rand::Rng;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::{collections::HashMap, error::Error};
 use std::{env, thread};
 use tokio::task;
@@ -379,32 +383,46 @@ pub async fn wbgl(connection: &mut PgConnection) -> f64 {
     value[0].wbgl.unwrap() as f64
 }
 
-pub async fn get_ticket_count(sum_wbgl:f64)->i32{
-    if sum_wbgl>=10_000.{
-        return 100_000
+pub async fn get_ticket_count(sum_wbgl: f64) -> i32 {
+    if sum_wbgl >= 10_000. {
+        return 100_000;
     }
-    if sum_wbgl>=1_000.{
-        return 10_000
-
+    if sum_wbgl >= 1_000. {
+        return 10_000;
     }
     1_000
-
 }
 
-pub async fn get_ticket_weight(sum_wbgl:f64) -> f64{
-    if sum_wbgl >= 10_000. && sum_wbgl < 75_000.{
-        return 75_000./sum_wbgl;
+pub async fn get_ticket_weight(sum_wbgl: f64) -> f64 {
+    if sum_wbgl >= 10_000. && sum_wbgl < 75_000. {
+        return 75_000. / sum_wbgl;
     }
-    if sum_wbgl >= 1_000. && sum_wbgl < 7_500.{
-        return 7_500./sum_wbgl
+    if sum_wbgl >= 1_000. && sum_wbgl < 7_500. {
+        return 7_500. / sum_wbgl;
     }
-    if sum_wbgl < 750.{
-        return 750./sum_wbgl
+    if sum_wbgl < 750. {
+        return 750. / sum_wbgl;
     }
     1.
-
-
 }
-pub async fn get_ticket_array(ticket_count:i32)->Vec<i32>{
-    vec![-1;ticket_count as usize]
+pub async fn get_ticket_array(ticket_count: i32) -> Vec<i32> {
+    vec![-1; ticket_count as usize]
+}
+
+fn calculate_hash<T: Hash>(t: &T) -> u64 {
+    let mut s = DefaultHasher::new();
+    t.hash(&mut s);
+    s.finish()
+}
+
+pub async fn generate_sequence(data: f64,size:i32) ->Vec<i32>{
+    let state = calculate_hash(&(data as i32));
+    let mut r = <rand::rngs::StdRng as rand::SeedableRng>::seed_from_u64(state);
+    let mut sequence = vec![];
+
+    for i in 0..size {
+        sequence.push(i);
+    }
+    sequence.shuffle(&mut r);
+    sequence
 }

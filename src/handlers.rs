@@ -14,6 +14,7 @@ use opensea_api::models::{InfoPoint, NewToken, Token};
 use opensea_api::*;
 use std::collections::HashMap;
 use std::str::FromStr;
+
 use std::sync::Arc;
 
 use crate::structs;
@@ -68,6 +69,7 @@ pub async fn get_tickets(
     let mut connection = pool.get().unwrap();
     let mut colors = HashMap::with_capacity(sorted_scores.capacity());
     let mut i = 0;
+    let mut j = 0;
 
     let wbgl_points = utils::wbgl(&mut connection).await;
 
@@ -83,9 +85,14 @@ pub async fn get_tickets(
     for st in &sorted_scores {
         sum_wbgl += st.1;
     }
+
     let mut ticket_weight = utils::get_ticket_weight(sum_wbgl).await;
     let mut ticket_count = utils::get_ticket_count(sum_wbgl).await;
+
     let mut tickets = utils::get_ticket_array(ticket_count).await;
+    let sequence = utils::generate_sequence(sum_wbgl,ticket_count).await;
+
+
 
     
     sorted_scores.iter().for_each(|(address, score)| {
@@ -102,7 +109,17 @@ pub async fn get_tickets(
                 color: color
             },
         );
+        let tickets_for_user = (ticket_weight*score) as i32;
+        for _j in 0..tickets_for_user{
+            tickets[sequence[j as usize] as usize] = i;
+            j+=1;
+
+        }
+        
+
+
         i+=1;
+
     });
     let resp =structs::TicketResponse{tickets,map:colors};
     
