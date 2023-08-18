@@ -222,3 +222,16 @@ pub struct LastTradeResponse {
     pub href: String,
 }
 
+
+#[derive(Serialize, Deserialize)]
+#[allow(dead_code)]
+pub struct TicketResponse{
+    pub tickets: Vec<i32>,
+    pub map: HashMap<i32,TicketInfo>,
+}
+#[derive(Serialize, Deserialize)]
+pub struct TicketInfo{
+    pub address:String,
+    pub color:String
+}
+

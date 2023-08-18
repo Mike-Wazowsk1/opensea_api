@@ -1,5 +1,6 @@
 use self::schema::info::dsl::*;
 use self::schema::tokens::dsl::*;
+use random_color::{Color, Luminosity, RandomColor};
 
 use actix_web::{get, web, HttpRequest, HttpResponse, Responder};
 use diesel::associations::HasTable;
@@ -28,17 +29,16 @@ pub async fn get_nfts() -> impl Responder {
     }
 }
 
-
 #[get("/get_blockchain_data")]
-pub async fn get_blockchain_data(pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>) -> impl Responder {
+pub async fn get_blockchain_data(
+    pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,
+) -> impl Responder {
     let connection = pool.get().unwrap();
 
     // let current_block = bgl_provider.get_block_number().await.unwrap();
     HttpResponse::Ok()
-    .append_header(("Access-Control-Allow-Origin", "*"))
-    .json(0)
-
-
+        .append_header(("Access-Control-Allow-Origin", "*"))
+        .json(0)
 }
 #[get("/get_last_winners")]
 pub async fn get_last_winners() -> impl Responder {
@@ -59,14 +59,15 @@ pub async fn get_lucky_hash() -> impl Responder {
     }
 }
 
-
 #[get("/get_tickets")]
-pub async fn get_tickets(pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,
-    cache: web::Data<Cache<String, f64>>) -> impl Responder {
+pub async fn get_tickets(
+    pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,
+    cache: web::Data<Cache<String, f64>>,
+) -> impl Responder {
     let mut sorted_scores: Vec<(Arc<String>, f64)> = cache.iter().collect();
     let mut connection = pool.get().unwrap();
-
-    
+    let mut colors = HashMap::with_capacity(sorted_scores.capacity());
+    let mut i = 0;
 
     let wbgl_points = utils::wbgl(&mut connection).await;
 
@@ -79,24 +80,32 @@ pub async fn get_tickets(pool: web::Data<r2d2::Pool<ConnectionManager<PgConnecti
         }
     });
     let mut sum_wbgl = 0.;
-    let mut ticket_weight = utils::get_ticket_weight(sum_wbgl).await;
-    let mut ticket_count =utils::get_ticket_count(sum_wbgl).await;
-    let mut tickets = utils::get_ticket_array(ticket_count).await;
     for st in &sorted_scores {
         sum_wbgl += st.1;
     }
-
-
-
-
+    let mut ticket_weight = utils::get_ticket_weight(sum_wbgl).await;
+    let mut ticket_count = utils::get_ticket_count(sum_wbgl).await;
+    let mut tickets = utils::get_ticket_array(ticket_count).await;
+    sorted_scores.iter().for_each(|(address, score)| {
+        let color = RandomColor::new()
+            // .hue(Color::Blue) // Optional
+            // .luminosity(Luminosity::Light) // Optional
+            // .seed(42) // Optional
+            // .alpha(1.0) // Optional
+            .to_rgb_string();
+        colors.insert(
+            i,
+            structs::TicketInfo {
+                address: address.to_string(),
+                color: color
+            },
+        );
+    });
 
     HttpResponse::Ok()
-    .append_header(("Access-Control-Allow-Origin", "*"))
-    .json(tickets)   
-    
-
+        .append_header(("Access-Control-Allow-Origin", "*"))
+        .json(tickets)
 }
-
 
 #[get("/get_owners")]
 pub async fn get_owners(
@@ -160,7 +169,6 @@ pub async fn get_owners(
 
     let mut sorted_scores: Vec<(Arc<String>, f64)> = cache.iter().collect();
 
-
     sorted_scores.sort_by(|a, b| {
         let score_comparison = b.1.partial_cmp(&a.1).unwrap();
         if score_comparison == std::cmp::Ordering::Equal {
@@ -184,14 +192,14 @@ pub async fn get_owners(
             result.push(structs::Fun2Response {
                 address: sorted_scores[i].0.to_string(),
                 score: sorted_scores[i].1,
-                reward:reward as i64,
+                reward: reward as i64,
             });
         } else {
             if sorted_scores[i].0.to_string() == search {
                 result.push(structs::Fun2Response {
                     address: sorted_scores[i].0.to_string(),
                     score: sorted_scores[i].1,
-                    reward:reward as i64,
+                    reward: reward as i64,
                 });
             }
         }
@@ -207,7 +215,7 @@ pub async fn get_owners(
     page = page - 1;
     let cur_index: i32 = limit * page as i32;
     let mut j = 0;
-    if limit == 0 { 
+    if limit == 0 {
         limit = sorted_scores.len() as i32;
     }
     // let connection: &mut PgConnection = &mut establish_connection().await;
@@ -216,7 +224,7 @@ pub async fn get_owners(
         final_result.push(structs::Fun2Response {
             address: sorted_scores[i].0.to_string(),
             score: sorted_scores[i].1,
-            reward:reward as i64,
+            reward: reward as i64,
         });
         j += 1;
         if j == limit {
