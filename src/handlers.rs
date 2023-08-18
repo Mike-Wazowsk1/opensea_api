@@ -60,6 +60,32 @@ pub async fn get_lucky_hash() -> impl Responder {
     }
 }
 
+#[get("/get_tickets_count")]
+pub async fn get_tickets_count(    pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,
+    cache: web::Data<Cache<String, f64>>,) -> impl Responder {
+    let mut sorted_scores: Vec<(Arc<String>, f64)> = cache.iter().collect();
+    sorted_scores.sort_by(|a, b| {
+        let score_comparison = b.1.partial_cmp(&a.1).unwrap();
+        if score_comparison == std::cmp::Ordering::Equal {
+            (*a.0).partial_cmp(&(*b.0)).unwrap()
+        } else {
+            score_comparison
+        }
+    });
+    let mut sum_wbgl = 0.;
+    for st in &sorted_scores {
+        sum_wbgl += st.1;
+    }
+
+    let ticket_count = utils::get_ticket_count(sum_wbgl).await;
+    
+    HttpResponse::Ok()
+    .append_header(("Access-Control-Allow-Origin", "*"))
+    .json(ticket_count)
+}
+
+
+
 #[get("/get_tickets")]
 pub async fn get_tickets(
     pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,

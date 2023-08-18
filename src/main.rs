@@ -45,6 +45,7 @@ async fn main() -> std::io::Result<()> {
             .service(handlers::get_last_winners)
             .service(handlers::get_lucky_hash)
             .service(handlers::get_tickets)
+            .service(handlers::get_tickets_count)
     })
     .bind("0.0.0.0:8081")?
     .run()
