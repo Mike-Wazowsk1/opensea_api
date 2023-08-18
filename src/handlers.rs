@@ -104,7 +104,7 @@ pub async fn get_tickets(
 
     HttpResponse::Ok()
         .append_header(("Access-Control-Allow-Origin", "*"))
-        .json(tickets)
+        .json(colors)
 }
 
 #[get("/get_owners")]
