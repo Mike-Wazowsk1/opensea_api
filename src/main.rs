@@ -25,13 +25,13 @@ async fn main() -> std::io::Result<()> {
         .build(manager)
         .expect("Could not build connection pool");
 
-    let provider: Provider<Http> = Provider::<Http>::try_from("NO").unwrap();
+    // let provider: Provider<Http> = Provider::<Http>::try_from("NO").unwrap();
 
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(pool.clone()))
             .app_data(web::Data::new(cache.clone()))
-            .app_data(web::Data::new(provider.clone()))
+            // .app_data(web::Data::new(provider.clone()))
             .route("/", web::get().to(|| async { "Actix REST API" }))
             .service(handlers::get_nfts)
             .service(handlers::get_nft_by_address)

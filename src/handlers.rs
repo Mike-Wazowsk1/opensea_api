@@ -30,13 +30,13 @@ pub async fn get_nfts() -> impl Responder {
 
 
 #[get("/get_blockchain_data")]
-pub async fn get_blockchain_data(pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,bgl_provider:web::Data<Provider<Http>>) -> impl Responder {
+pub async fn get_blockchain_data(pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>) -> impl Responder {
     let connection = pool.get().unwrap();
 
-    let current_block = bgl_provider.get_block_number().await.unwrap();
+    // let current_block = bgl_provider.get_block_number().await.unwrap();
     HttpResponse::Ok()
     .append_header(("Access-Control-Allow-Origin", "*"))
-    .json(current_block)
+    .json(0)
 
 
 }
