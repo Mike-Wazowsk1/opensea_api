@@ -66,7 +66,7 @@ pub async fn get_last_winners(cache: web::Data<Cache<String, f64>>) -> impl Resp
     println!("{:?}", tickets);
     for w in winners {
         println!("{:?}, {:?}", w, tickets[w as usize]);
-        if tickets[w as usize] < owners_map.len().try_into().unwrap() {
+        if tickets[w as usize] < owners_map.len().try_into().unwrap()  &&tickets[w as usize]>0{
             let winner = owners_map[tickets[w as usize] as usize]
                 .0
                 .clone()
