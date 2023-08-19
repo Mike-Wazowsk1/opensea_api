@@ -544,7 +544,6 @@ pub async fn get_win_tickets(h:String,l:i32)->Vec<i32>{
     if l == 1000{
         let h = parse_digits(&h);
         let winners = get_winners(h,3);       
-        println!("{:?}",winners);
         return winners[0..3].to_vec()
 
 
