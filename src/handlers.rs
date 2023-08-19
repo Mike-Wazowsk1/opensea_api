@@ -51,13 +51,20 @@ pub async fn get_blockchain_data(
 }
 #[get("/get_last_winners")]
 pub async fn get_last_winners() -> impl Responder {
-    match utils::get_collection_from_opensea().await {
-        Ok(nfts) => HttpResponse::Ok()
-            .append_header(("Access-Control-Allow-Origin", "*"))
-            .json(nfts),
-        Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-    }
+    let res = vec![Address::zero(),Address::zero(),Address::zero()];
+    return HttpResponse::Ok()
+    .append_header(("Access-Control-Allow-Origin", "*"))
+    .json(res);
 }
+
+#[get("/get_round")]
+pub async fn get_round() -> impl Responder {
+    return HttpResponse::Ok()
+    .append_header(("Access-Control-Allow-Origin", "*"))
+    .json(0);
+}
+
+
 #[get("/get_lucky_hash")]
 pub async fn get_lucky_hash() -> impl Responder {
     let last_block = utils::get_current_block().await;
