@@ -530,6 +530,7 @@ fn get_winners(vec:Vec<i32>,n:usize)->Vec<i32>{
         res.push(number);
 
     }
+    res.reverse();
     res
 }
 fn parse_digits(t_num: &str) -> Vec<i32> {
