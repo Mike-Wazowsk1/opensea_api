@@ -509,8 +509,8 @@ pub async fn get_minted_tickets(sum_wbgl: f64, owners_map: &mut Vec<(Arc<String>
     (tickets,colors)
 }
 
-fn get_winners(vec:Vec<u32>,n:usize)->Vec<i32>{
-    let mut groups: Vec<Vec<u32>> = Vec::new();
+fn get_winners(vec:Vec<i32>,n:usize)->Vec<i32>{
+    let mut groups: Vec<Vec<i32>> = Vec::new();
     let mut res = vec![];
     
     let mut i = vec.len();
@@ -532,11 +532,11 @@ fn get_winners(vec:Vec<u32>,n:usize)->Vec<i32>{
     }
     res
 }
-fn parse_digits(t_num: &str) -> Vec<u32> {
-    t_num
-        .chars()
-        .filter_map(|a| a.to_digit(10))
-        .collect()
+fn parse_digits(t_num: &str) -> Vec<i32> {
+    let group:Vec<u32> = t_num.chars().filter_map(|a| a.to_digit(10)).collect();
+        let t_num: Vec<i32> = group.iter().map(|&x| x as i32).collect();
+        t_num
+    
 }
 
 pub async fn get_win_tickets(h:String,l:i32)->Vec<i32>{
