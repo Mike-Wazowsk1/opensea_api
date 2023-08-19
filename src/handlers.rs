@@ -37,13 +37,16 @@ pub async fn get_blockchain_data(
 ) -> impl Responder {
     let last_block = utils::get_current_block().await;
     let lucky_block = utils::get_lucky_block().await;
-    let blocks_before = lucky_block - last_block;
+    let mut blocks_before = 0;
+    if last_block.le(&lucky_block) {
+        blocks_before = lucky_block - last_block;
+    }
 
     HttpResponse::Ok()
         .append_header(("Access-Control-Allow-Origin", "*"))
         .json(structs::BlockChainData {
             winning_block: lucky_block,
-            blocks_before: blocks_before.max(0),
+            blocks_before: blocks_before,
         })
 }
 #[get("/get_last_winners")]
