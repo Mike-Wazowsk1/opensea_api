@@ -441,23 +441,29 @@ pub async fn generate_sequence(data: f64, size: i32) -> Vec<i32> {
 }
 
 pub async fn get_current_block() -> u128 {
-    let out = Command::new("BGL-cli getblockcount")
+    let out = Command::new("BGL-cli")
+        .arg("getblockcount")
         .output()
-        .expect("ls command failed to start");
+        .unwrap();
     let str_block = String::from_utf8_lossy(&out.stdout);
-    let s = str_block.to_string();
+    let mut s = str_block.to_string();
+    s.pop();
     let block: u128 = s.parse().unwrap();
     block
 }
-pub async fn get_block_hash(block: u128) ->String{
-    let out = Command::new("BGL-cli getblockhash {block}")
+pub async fn get_block_hash(block: u128) -> String {
+    let arg = format!("{}", block);
+    let a = "getblockhash";
+    let out = Command::new("BGL-cli")
+        .arg(a)
+        .arg(arg)
         .output()
         .expect("ls command failed to start");
     let str_block = String::from_utf8_lossy(&out.stdout);
-    let s = str_block.to_string();
+    let mut s = str_block.to_string();
+    s.pop();
     s
 }
-pub async fn get_lucky_block() ->u128{
+pub async fn get_lucky_block() -> u128 {
     0_u128
-
 }
