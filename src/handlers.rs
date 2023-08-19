@@ -13,6 +13,7 @@ use moka::sync::Cache;
 use opensea_api::models::{InfoPoint, NewToken, Token};
 use opensea_api::*;
 use std::collections::HashMap;
+use std::ops::Add;
 use std::str::FromStr;
 
 use std::sync::Arc;
@@ -34,12 +35,16 @@ pub async fn get_nfts() -> impl Responder {
 pub async fn get_blockchain_data(
     pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,
 ) -> impl Responder {
-    let connection = pool.get().unwrap();
+    let last_block = utils::get_current_block().await;
+    let lucky_block = utils::get_lucky_block().await;
+    let blocks_before = lucky_block - last_block;
 
-    // let current_block = bgl_provider.get_block_number().await.unwrap();
     HttpResponse::Ok()
         .append_header(("Access-Control-Allow-Origin", "*"))
-        .json(0)
+        .json(structs::BlockChainData {
+            winning_block: lucky_block,
+            blocks_before: blocks_before.max(0),
+        })
 }
 #[get("/get_last_winners")]
 pub async fn get_last_winners() -> impl Responder {
@@ -52,12 +57,17 @@ pub async fn get_last_winners() -> impl Responder {
 }
 #[get("/get_lucky_hash")]
 pub async fn get_lucky_hash() -> impl Responder {
-    match utils::get_collection_from_opensea().await {
-        Ok(nfts) => HttpResponse::Ok()
+    let last_block = utils::get_current_block().await;
+    let lucky_block = utils::get_lucky_block().await;
+    if last_block >= lucky_block {
+        let lucky_hash = utils::get_block_hash(lucky_block).await;
+        return HttpResponse::Ok()
             .append_header(("Access-Control-Allow-Origin", "*"))
-            .json(nfts),
-        Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
+            .json(lucky_hash);
     }
+    HttpResponse::Ok()
+        .append_header(("Access-Control-Allow-Origin", "*"))
+        .json(Address::zero())
 }
 
 #[get("/get_tickets_count")]

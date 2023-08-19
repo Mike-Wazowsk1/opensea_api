@@ -235,3 +235,9 @@ pub struct TicketInfo{
     pub color:String
 }
 
+
+#[derive(Serialize, Deserialize)]
+pub struct BlockChainData{
+    pub winning_block:u128,
+    pub blocks_before:u128
+}
