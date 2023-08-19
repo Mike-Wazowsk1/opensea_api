@@ -35,11 +35,11 @@ pub async fn get_nfts() -> impl Responder {
 pub async fn get_blockchain_data(
     pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,
 ) -> impl Responder {
-    let last_block = utils::get_current_block().await;
+    let current_block = utils::get_current_block().await;
     let lucky_block = utils::get_lucky_block().await;
     let mut blocks_before = 0;
-    if last_block.le(&lucky_block) {
-        blocks_before = lucky_block - last_block;
+    if current_block.le(&lucky_block) {
+        blocks_before = lucky_block - current_block;
     }
 
     HttpResponse::Ok()
@@ -50,26 +50,45 @@ pub async fn get_blockchain_data(
         })
 }
 #[get("/get_last_winners")]
-pub async fn get_last_winners() -> impl Responder {
-    let res = vec![Address::zero(),Address::zero(),Address::zero()];
+pub async fn get_last_winners(cache: web::Data<Cache<String, f64>>) -> impl Responder {
+    let mut owners_map: Vec<(Arc<String>, f64)> = cache.iter().collect();
+    let mut res= Vec::new();
+
+    let mut sum_wbgl = 0.;
+    for st in &owners_map {
+        sum_wbgl += st.1;
+    }
+    let (tickets, _colors) = utils::get_minted_tickets(sum_wbgl, &mut owners_map).await;
+
+    let lucky_block = utils::get_lucky_block().await;
+    let lucky_hash = utils::get_block_hash(lucky_block).await;
+    let winners = utils::get_win_tickets(lucky_hash,tickets.len().try_into().unwrap()).await;
+    for w in winners{
+        let winner = owners_map[tickets[w as usize] as usize].0.clone().to_string();
+
+        res.push(winner);
+    }
     return HttpResponse::Ok()
-    .append_header(("Access-Control-Allow-Origin", "*"))
-    .json(res);
+        .append_header(("Access-Control-Allow-Origin", "*"))
+        .json(res);
+
+    
+
+
 }
 
 #[get("/get_round")]
 pub async fn get_round() -> impl Responder {
     return HttpResponse::Ok()
-    .append_header(("Access-Control-Allow-Origin", "*"))
-    .json(0);
+        .append_header(("Access-Control-Allow-Origin", "*"))
+        .json(0);
 }
-
 
 #[get("/get_lucky_hash")]
 pub async fn get_lucky_hash() -> impl Responder {
-    let last_block = utils::get_current_block().await;
+    let current_block = utils::get_current_block().await;
     let lucky_block = utils::get_lucky_block().await;
-    if last_block >= lucky_block {
+    if current_block >= lucky_block {
         let lucky_hash = utils::get_block_hash(lucky_block).await;
         return HttpResponse::Ok()
             .append_header(("Access-Control-Allow-Origin", "*"))
@@ -85,8 +104,8 @@ pub async fn get_tickets_count(
     pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,
     cache: web::Data<Cache<String, f64>>,
 ) -> impl Responder {
-    let mut sorted_scores: Vec<(Arc<String>, f64)> = cache.iter().collect();
-    sorted_scores.sort_by(|a, b| {
+    let mut owners_map: Vec<(Arc<String>, f64)> = cache.iter().collect();
+    owners_map.sort_by(|a, b| {
         let score_comparison = b.1.partial_cmp(&a.1).unwrap();
         if score_comparison == std::cmp::Ordering::Equal {
             (*a.0).partial_cmp(&(*b.0)).unwrap()
@@ -95,7 +114,7 @@ pub async fn get_tickets_count(
         }
     });
     let mut sum_wbgl = 0.;
-    for st in &sorted_scores {
+    for st in &owners_map {
         sum_wbgl += st.1;
     }
 
@@ -111,55 +130,14 @@ pub async fn get_tickets(
     pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,
     cache: web::Data<Cache<String, f64>>,
 ) -> impl Responder {
-    let mut sorted_scores: Vec<(Arc<String>, f64)> = cache.iter().collect();
-    let mut connection = pool.get().unwrap();
-    let mut colors = HashMap::with_capacity(sorted_scores.capacity());
-    let mut i = 0;
-    let mut j = 0;
+    let mut owners_map: Vec<(Arc<String>, f64)> = cache.iter().collect();
 
-    let wbgl_points = utils::wbgl(&mut connection).await;
-
-    sorted_scores.sort_by(|a, b| {
-        let score_comparison = b.1.partial_cmp(&a.1).unwrap();
-        if score_comparison == std::cmp::Ordering::Equal {
-            (*a.0).partial_cmp(&(*b.0)).unwrap()
-        } else {
-            score_comparison
-        }
-    });
     let mut sum_wbgl = 0.;
-    for st in &sorted_scores {
+    for st in &owners_map {
         sum_wbgl += st.1;
     }
+    let (tickets, colors) = utils::get_minted_tickets(sum_wbgl, &mut owners_map).await;
 
-    let mut ticket_weight = utils::get_ticket_weight(sum_wbgl).await;
-    let mut ticket_count = utils::get_ticket_count(sum_wbgl).await;
-
-    let mut tickets = utils::get_ticket_array(ticket_count).await;
-    let sequence = utils::generate_sequence(sum_wbgl, ticket_count).await;
-
-    sorted_scores.iter().for_each(|(address, score)| {
-        let color = RandomColor::new()
-            // .hue(Color::Blue) // Optional
-            // .luminosity(Luminosity::Light) // Optional
-            // .seed(42) // Optional
-            // .alpha(1.0) // Optional
-            .to_hex();
-        colors.insert(
-            i,
-            structs::TicketInfo {
-                address: address.to_string(),
-                color: color,
-            },
-        );
-        let tickets_for_user = (ticket_weight * score) as i32;
-        for _j in 0..tickets_for_user {
-            tickets[sequence[j as usize] as usize] = i;
-            j += 1;
-        }
-
-        i += 1;
-    });
     let resp = structs::TicketResponse {
         tickets,
         map: colors,
@@ -230,9 +208,9 @@ pub async fn get_owners(
     //     }
     // }
 
-    let mut sorted_scores: Vec<(Arc<String>, f64)> = cache.iter().collect();
+    let mut owners_map: Vec<(Arc<String>, f64)> = cache.iter().collect();
 
-    sorted_scores.sort_by(|a, b| {
+    owners_map.sort_by(|a, b| {
         let score_comparison = b.1.partial_cmp(&a.1).unwrap();
         if score_comparison == std::cmp::Ordering::Equal {
             (*a.0).partial_cmp(&(*b.0)).unwrap()
@@ -241,7 +219,7 @@ pub async fn get_owners(
         }
     });
     let mut sum_wbgl = 0.;
-    for st in &sorted_scores {
+    for st in &owners_map {
         sum_wbgl += st.1;
     }
 
@@ -249,19 +227,19 @@ pub async fn get_owners(
 
     let mut result = Vec::new();
 
-    for i in 0..sorted_scores.len() {
-        let reward = (wbgl_points * sorted_scores[i].1);
+    for i in 0..owners_map.len() {
+        let reward = (wbgl_points * owners_map[i].1);
         if search == "" {
             result.push(structs::Fun2Response {
-                address: sorted_scores[i].0.to_string(),
-                score: sorted_scores[i].1,
+                address: owners_map[i].0.to_string(),
+                score: owners_map[i].1,
                 reward: reward as i64,
             });
         } else {
-            if sorted_scores[i].0.to_string() == search {
+            if owners_map[i].0.to_string() == search {
                 result.push(structs::Fun2Response {
-                    address: sorted_scores[i].0.to_string(),
-                    score: sorted_scores[i].1,
+                    address: owners_map[i].0.to_string(),
+                    score: owners_map[i].1,
                     reward: reward as i64,
                 });
             }
@@ -279,14 +257,14 @@ pub async fn get_owners(
     let cur_index: i32 = limit * page as i32;
     let mut j = 0;
     if limit == 0 {
-        limit = sorted_scores.len() as i32;
+        limit = owners_map.len() as i32;
     }
     // let connection: &mut PgConnection = &mut establish_connection().await;
-    for i in cur_index as usize..sorted_scores.len() {
-        let reward = (wbgl_points * sorted_scores[i].1);
+    for i in cur_index as usize..owners_map.len() {
+        let reward = (wbgl_points * owners_map[i].1);
         final_result.push(structs::Fun2Response {
-            address: sorted_scores[i].0.to_string(),
-            score: sorted_scores[i].1,
+            address: owners_map[i].0.to_string(),
+            score: owners_map[i].1,
             reward: reward as i64,
         });
         j += 1;
@@ -378,10 +356,10 @@ pub async fn get_payment(
     //     }
     // }
 
-    let mut sorted_scores: Vec<(Arc<String>, f64)> = cache.iter().collect();
+    let mut owners_map: Vec<(Arc<String>, f64)> = cache.iter().collect();
     let wgbl_score = utils::wbgl(&mut connection).await;
 
-    sorted_scores.sort_by(|a, b| {
+    owners_map.sort_by(|a, b| {
         let score_comparison = b.1.partial_cmp(&a.1).unwrap();
         if score_comparison == std::cmp::Ordering::Equal {
             a.0.partial_cmp(&b.0).unwrap()
@@ -391,15 +369,15 @@ pub async fn get_payment(
     });
 
     let mut sum_wbgl = 0.;
-    for st in &sorted_scores {
+    for st in &owners_map {
         sum_wbgl += st.1;
     }
     let mut result: Vec<String> = Vec::new();
-    for i in 0..sorted_scores.len() {
-        let reward = (wgbl_score * sorted_scores[i].1) / sum_wbgl;
+    for i in 0..owners_map.len() {
+        let reward = (wgbl_score * owners_map[i].1) / sum_wbgl;
 
         let str_reward = format!("{}", reward);
-        result.push(format!("{}?{}", sorted_scores[i].0, str_reward));
+        result.push(format!("{}?{}", owners_map[i].0, str_reward));
     }
     let text = result.join(";");
 

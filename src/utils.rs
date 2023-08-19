@@ -11,6 +11,7 @@ use ethers::providers::{Http, Provider};
 use moka::sync::Cache;
 use opensea_api::models::{InfoPoint, Token};
 use opensea_api::*;
+use random_color::RandomColor;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -466,4 +467,102 @@ pub async fn get_block_hash(block: u128) -> String {
 }
 pub async fn get_lucky_block() -> u128 {
     0_u128
+}
+
+pub async fn get_minted_tickets(sum_wbgl: f64, owners_map: &mut Vec<(Arc<String>, f64)>) ->(Vec<i32>,HashMap<i32, structs::TicketInfo>){
+    let mut i = 0;
+    let mut j = 0;
+    let mut colors: HashMap<i32, structs::TicketInfo> = HashMap::with_capacity(owners_map.capacity());
+
+    owners_map.sort_by(|a, b| {
+        let score_comparison = b.1.partial_cmp(&a.1).unwrap();
+        if score_comparison == std::cmp::Ordering::Equal {
+            (*a.0).partial_cmp(&(*b.0)).unwrap()
+        } else {
+            score_comparison
+        }
+    });
+
+    let ticket_weight = get_ticket_weight(sum_wbgl).await;
+    let ticket_count = get_ticket_count(sum_wbgl).await;
+
+    let mut tickets = get_ticket_array(ticket_count).await;
+    let sequence = generate_sequence(sum_wbgl, ticket_count).await;
+
+    owners_map.iter().for_each(|(address, score)| {
+        let color = RandomColor::new().to_hex();
+        colors.insert(
+            i,
+            structs::TicketInfo {
+                address: address.to_string(),
+                color,
+            },
+        );
+        let tickets_for_user = (ticket_weight * score) as i32;
+        for _j in 0..tickets_for_user {
+            tickets[sequence[j as usize] as usize] = i;
+            j += 1;
+        }
+
+        i += 1;
+    });
+    (tickets,colors)
+}
+
+fn get_winners(vec:Vec<u32>,n:usize)->Vec<i32>{
+    let mut groups: Vec<Vec<u32>> = Vec::new();
+    let mut res = vec![];
+    
+    let mut i = vec.len();
+    while i > 0 {
+        let start = if i >= n { i - n } else { 0 };
+        let group = vec[start..i].to_vec();
+        groups.push(group);
+        i -= n;
+    }
+    
+    groups.reverse();
+    
+    for group in groups {
+        let vec_i32: Vec<i32> = group.iter().map(|&x| x as i32).collect();
+
+        let number: i32 = vec_i32.iter().fold(0, |acc, &x| acc * 10 + x);
+        res.push(number);
+
+    }
+    res
+}
+fn parse_digits(t_num: &str) -> Vec<u32> {
+    t_num
+        .chars()
+        .filter_map(|a| a.to_digit(10))
+        .collect()
+}
+
+pub async fn get_win_tickets(h:String,l:i32)->Vec<i32>{
+    if l == 1000{
+        let h = parse_digits(&h);
+        let winners = get_winners(h,3);       
+        return winners  
+
+
+    }
+    if l == 10_000{
+        let h = parse_digits(&h);
+        let winners = get_winners(h,4);       
+        return winners  
+
+
+
+    }
+    if l == 100_000{
+        let h = parse_digits(&h);
+        let winners = get_winners(h,5);       
+        return winners  
+
+    }
+    return Vec::new()  
+
+
+
 }
