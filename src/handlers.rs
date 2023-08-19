@@ -52,7 +52,7 @@ pub async fn get_blockchain_data(
 #[get("/get_last_winners")]
 pub async fn get_last_winners(cache: web::Data<Cache<String, f64>>) -> impl Responder {
     let mut owners_map: Vec<(Arc<String>, f64)> = cache.iter().collect();
-    let mut res= Vec::new();
+    let mut res = Vec::new();
 
     let mut sum_wbgl = 0.;
     for st in &owners_map {
@@ -62,19 +62,23 @@ pub async fn get_last_winners(cache: web::Data<Cache<String, f64>>) -> impl Resp
 
     let lucky_block = utils::get_lucky_block().await;
     let lucky_hash = utils::get_block_hash(lucky_block).await;
-    let winners = utils::get_win_tickets(lucky_hash,tickets.len().try_into().unwrap()).await;
-    for w in winners{
-        let winner = owners_map[tickets[w as usize] as usize].0.clone().to_string();
-
-        res.push(winner);
+    let winners = utils::get_win_tickets(lucky_hash, tickets.len().try_into().unwrap()).await;
+    println!("{:?}", tickets);
+    for w in winners {
+        println!("{:?}, {:?}", w, tickets[w as usize]);
+        if tickets[w as usize] < owners_map.len().try_into().unwrap() {
+            let winner = owners_map[tickets[w as usize] as usize]
+                .0
+                .clone()
+                .to_string();
+            res.push(winner);
+        }else{
+            res.push("No winner".to_string())
+        }
     }
     return HttpResponse::Ok()
         .append_header(("Access-Control-Allow-Origin", "*"))
         .json(res);
-
-    
-
-
 }
 
 #[get("/get_round")]
