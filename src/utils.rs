@@ -1,26 +1,30 @@
-use self::schema::info::dsl::*;
 use self::schema::tokens::dsl::*;
 
+use self::schema::info_lotto::dsl::*;
 use actix_web::web;
 use diesel::pg::PgConnection;
-use diesel::prelude::*;
+use diesel::r2d2::ConnectionManager;
+use diesel::{prelude::*, r2d2};
 use dotenvy::dotenv;
 use ethers::prelude::rand::seq::SliceRandom;
 use ethers::prelude::*;
 use ethers::providers::{Http, Provider};
 use moka::sync::Cache;
-use opensea_api::models::{InfoPoint, Token};
+use opensea_api::models::Token;
 use opensea_api::*;
 use random_color::RandomColor;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
+use opensea_api::models::InfoLottoPoint;
+use std::collections::HashMap;
+
 use crate::structs;
 use std::collections::hash_map::DefaultHasher;
+use std::error::Error;
 use std::hash::{Hash, Hasher};
 use std::process::Command;
-use std::{collections::HashMap, error::Error};
 use std::{env, thread};
 use tokio::task;
 
@@ -380,7 +384,7 @@ pub async fn get_owners_local(cache: Cache<String, f64>) {
 }
 
 pub async fn wbgl(connection: &mut PgConnection) -> f64 {
-    let value = info.load::<InfoPoint>(connection).unwrap();
+    let value = info_lotto.load::<InfoLottoPoint>(connection).unwrap();
     value[0].wbgl.unwrap() as f64
 }
 
@@ -465,14 +469,27 @@ pub async fn get_block_hash(block: u128) -> String {
     s.pop();
     s
 }
-pub async fn get_lucky_block() -> u128 {
-    0_u128
+pub async fn get_lucky_block(
+    mut connection: r2d2::PooledConnection<ConnectionManager<PgConnection>>,
+) -> u128 {
+    let value = info_lotto.load::<InfoLottoPoint>(&mut connection).unwrap();
+    u128::from_str(&value[0].last_payment).unwrap()
+}
+pub async fn get_round(
+    mut connection: r2d2::PooledConnection<ConnectionManager<PgConnection>>,
+) -> i32 {
+    let value = info_lotto.load::<InfoLottoPoint>(&mut connection).unwrap();
+    value[0].round.unwrap()
 }
 
-pub async fn get_minted_tickets(sum_wbgl: f64, owners_map: &mut Vec<(Arc<String>, f64)>) ->(Vec<i32>,HashMap<i32, structs::TicketInfo>){
+pub async fn get_minted_tickets(
+    sum_wbgl: f64,
+    owners_map: &mut Vec<(Arc<String>, f64)>,
+) -> (Vec<i32>, HashMap<i32, structs::TicketInfo>) {
     let mut i = 0;
     let mut j = 0;
-    let mut colors: HashMap<i32, structs::TicketInfo> = HashMap::with_capacity(owners_map.capacity());
+    let mut colors: HashMap<i32, structs::TicketInfo> =
+        HashMap::with_capacity(owners_map.capacity());
 
     owners_map.sort_by(|a, b| {
         let score_comparison = b.1.partial_cmp(&a.1).unwrap();
@@ -506,13 +523,13 @@ pub async fn get_minted_tickets(sum_wbgl: f64, owners_map: &mut Vec<(Arc<String>
 
         i += 1;
     });
-    (tickets,colors)
+    (tickets, colors)
 }
 
-fn get_winners(vec:Vec<i32>,n:usize)->Vec<i32>{
+fn get_winners(vec: Vec<i32>, n: usize) -> Vec<i32> {
     let mut groups: Vec<Vec<i32>> = Vec::new();
     let mut res = vec![];
-    
+
     let mut i = vec.len();
     while i > 0 {
         let start = if i >= n { i - n } else { 0 };
@@ -520,50 +537,39 @@ fn get_winners(vec:Vec<i32>,n:usize)->Vec<i32>{
         groups.push(group);
         i -= n;
     }
-    
+
     groups.reverse();
-    
+
     for group in groups {
         let vec_i32: Vec<i32> = group.iter().map(|&x| x as i32).collect();
 
         let number: i32 = vec_i32.iter().fold(0, |acc, &x| acc * 10 + x);
         res.push(number);
-
     }
     res.reverse();
     res
 }
 fn parse_digits(t_num: &str) -> Vec<i32> {
-    let group:Vec<u32> = t_num.chars().filter_map(|a| a.to_digit(10)).collect();
-        let t_num: Vec<i32> = group.iter().map(|&x| x as i32).collect();
-        t_num
-    
+    let group: Vec<u32> = t_num.chars().filter_map(|a| a.to_digit(10)).collect();
+    let t_num: Vec<i32> = group.iter().map(|&x| x as i32).collect();
+    t_num
 }
 
-pub async fn get_win_tickets(h:String,l:i32)->Vec<i32>{
-    if l == 1000{
+pub async fn get_win_tickets(h: String, l: i32) -> Vec<i32> {
+    if l == 1000 {
         let h = parse_digits(&h);
-        let winners = get_winners(h,3);       
-        return winners[0..3].to_vec()
-
-
+        let winners = get_winners(h, 3);
+        return winners[0..3].to_vec();
     }
-    if l == 10_000{
+    if l == 10_000 {
         let h = parse_digits(&h);
-        let winners = get_winners(h,4);       
-        return winners[0..4].to_vec()
-
-
-
+        let winners = get_winners(h, 4);
+        return winners[0..4].to_vec();
     }
-    if l == 100_000{
+    if l == 100_000 {
         let h = parse_digits(&h);
-        let winners = get_winners(h,5);       
-        return winners[0..5].to_vec()
-
+        let winners = get_winners(h, 5);
+        return winners[0..5].to_vec();
     }
-    return Vec::new()  
-
-
-
+    return Vec::new();
 }

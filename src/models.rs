@@ -37,3 +37,13 @@ pub struct InfoPoint {
     pub wbgl:  Option<i32>
 
 }
+
+#[derive(Debug,Queryable, Selectable,Insertable)]
+#[diesel(table_name = crate::schema::info_lotto)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct InfoLottoPoint {
+    pub last_payment : String,
+    pub wining_block : Option<String>,
+    pub round : Option<i32>,
+    pub wbgl : Option<i32>
+}

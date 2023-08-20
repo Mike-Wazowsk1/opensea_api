@@ -16,8 +16,14 @@ diesel::table! {
         level -> Nullable<Text>,
     }
 }
+diesel::table! {
+    info_lotto (last_payment) {
+        last_payment -> Text,
+        wining_block -> Nullable<Text>,
+        round -> Nullable<Int4>,
+        wbgl -> Nullable<Int4>
 
-diesel::allow_tables_to_appear_in_same_query!(
-    info,
-    tokens,
-);
+    }
+}
+
+diesel::allow_tables_to_appear_in_same_query!(info, tokens,info_lotto);

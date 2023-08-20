@@ -1,6 +1,6 @@
-use self::schema::info::dsl::*;
 use self::schema::tokens::dsl::*;
-use random_color::{Color, Luminosity, RandomColor};
+use self::schema::info_lotto::dsl::*;
+
 
 use actix_web::{get, web, HttpRequest, HttpResponse, Responder};
 use diesel::associations::HasTable;
@@ -10,10 +10,9 @@ use diesel::r2d2::{self, ConnectionManager};
 use ethers::prelude::*;
 use ethers::providers::{Http, Provider};
 use moka::sync::Cache;
-use opensea_api::models::{InfoPoint, NewToken, Token};
+use opensea_api::models::{NewToken, Token, InfoLottoPoint};
 use opensea_api::*;
 use std::collections::HashMap;
-use std::ops::Add;
 use std::str::FromStr;
 
 use std::sync::Arc;
@@ -35,8 +34,10 @@ pub async fn get_nfts() -> impl Responder {
 pub async fn get_blockchain_data(
     pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,
 ) -> impl Responder {
+    let connection: r2d2::PooledConnection<ConnectionManager<PgConnection>> = pool.get().unwrap();
+
     let current_block = utils::get_current_block().await;
-    let lucky_block = utils::get_lucky_block().await;
+    let lucky_block = utils::get_lucky_block(connection).await;
     let mut blocks_before = 0;
     if current_block.le(&lucky_block) {
         blocks_before = lucky_block - current_block;
@@ -50,8 +51,11 @@ pub async fn get_blockchain_data(
         })
 }
 #[get("/get_last_winners")]
-pub async fn get_last_winners(cache: web::Data<Cache<String, f64>>) -> impl Responder {
+pub async fn get_last_winners(cache: web::Data<Cache<String, f64>>,pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>) -> impl Responder {
     let mut owners_map: Vec<(Arc<String>, f64)> = cache.iter().collect();
+    let connection: r2d2::PooledConnection<ConnectionManager<PgConnection>> = pool.get().unwrap();
+
+    
     let mut res = Vec::new();
 
     let mut sum_wbgl = 0.;
@@ -60,18 +64,17 @@ pub async fn get_last_winners(cache: web::Data<Cache<String, f64>>) -> impl Resp
     }
     let (tickets, _colors) = utils::get_minted_tickets(sum_wbgl, &mut owners_map).await;
 
-    let lucky_block = utils::get_lucky_block().await;
+    let lucky_block = utils::get_lucky_block(connection).await;
     let lucky_hash = utils::get_block_hash(lucky_block).await;
     let winners = utils::get_win_tickets(lucky_hash, tickets.len().try_into().unwrap()).await;
     for w in winners {
-        println!("{:?}, {:?}", w, tickets[w as usize]);
-        if tickets[w as usize] < owners_map.len().try_into().unwrap()  &&tickets[w as usize]>=0{
+        if tickets[w as usize] < owners_map.len().try_into().unwrap() && tickets[w as usize] >= 0 {
             let winner = owners_map[tickets[w as usize] as usize]
                 .0
                 .clone()
                 .to_string();
             res.push(winner);
-        }else{
+        } else {
             res.push("No winner".to_string())
         }
     }
@@ -81,16 +84,20 @@ pub async fn get_last_winners(cache: web::Data<Cache<String, f64>>) -> impl Resp
 }
 
 #[get("/get_round")]
-pub async fn get_round() -> impl Responder {
+pub async fn get_round(pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>) -> impl Responder {
+    let connection: r2d2::PooledConnection<ConnectionManager<PgConnection>> = pool.get().unwrap();
+    let r = utils::get_round(connection).await;
     return HttpResponse::Ok()
         .append_header(("Access-Control-Allow-Origin", "*"))
-        .json(0);
+        .json(r);
 }
 
 #[get("/get_lucky_hash")]
-pub async fn get_lucky_hash() -> impl Responder {
+pub async fn get_lucky_hash(pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>) -> impl Responder {
+    let connection: r2d2::PooledConnection<ConnectionManager<PgConnection>> = pool.get().unwrap();
+
     let current_block = utils::get_current_block().await;
-    let lucky_block = utils::get_lucky_block().await;
+    let lucky_block = utils::get_lucky_block(connection).await;
     if current_block >= lucky_block {
         let lucky_hash = utils::get_block_hash(lucky_block).await;
         return HttpResponse::Ok()
@@ -104,7 +111,6 @@ pub async fn get_lucky_hash() -> impl Responder {
 
 #[get("/get_tickets_count")]
 pub async fn get_tickets_count(
-    pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,
     cache: web::Data<Cache<String, f64>>,
 ) -> impl Responder {
     let mut owners_map: Vec<(Arc<String>, f64)> = cache.iter().collect();
@@ -130,7 +136,6 @@ pub async fn get_tickets_count(
 
 #[get("/get_tickets")]
 pub async fn get_tickets(
-    pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,
     cache: web::Data<Cache<String, f64>>,
 ) -> impl Responder {
     let mut owners_map: Vec<(Arc<String>, f64)> = cache.iter().collect();
@@ -154,12 +159,11 @@ pub async fn get_tickets(
 #[get("/get_owners")]
 pub async fn get_owners(
     req: HttpRequest,
-    pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,
     cache: web::Data<Cache<String, f64>>,
 ) -> impl Responder {
     let q: String = req.query_string().replace("&", " ").replace("=", " ");
     let query: Vec<&str> = q.split(" ").collect();
-    let mut connection = pool.get().unwrap();
+    // let connection = pool.get().unwrap();
 
     // let contract_addr = Address::from_str("0x2953399124F0cBB46d2CbACD8A89cF0599974963").unwrap();
 
@@ -231,7 +235,7 @@ pub async fn get_owners(
     let mut result = Vec::new();
 
     for i in 0..owners_map.len() {
-        let reward = (wbgl_points * owners_map[i].1);
+        let reward = wbgl_points * owners_map[i].1;
         if search == "" {
             result.push(structs::Fun2Response {
                 address: owners_map[i].0.to_string(),
@@ -264,7 +268,7 @@ pub async fn get_owners(
     }
     // let connection: &mut PgConnection = &mut establish_connection().await;
     for i in cur_index as usize..owners_map.len() {
-        let reward = (wbgl_points * owners_map[i].1);
+        let reward = wbgl_points * owners_map[i].1;
         final_result.push(structs::Fun2Response {
             address: owners_map[i].0.to_string(),
             score: owners_map[i].1,
@@ -286,8 +290,8 @@ pub async fn get_last_trade(
     pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,
 ) -> impl Responder {
     let mut connection = pool.get().unwrap();
-    let value = info.load::<InfoPoint>(&mut connection).unwrap();
-    let last_tx = value[0].hash.clone();
+    let value = info_lotto.load::<InfoLottoPoint>(&mut connection).unwrap();
+    let last_tx = value[0].last_payment.clone();
 
     let href = format!("https://bscscan.com/tx/{last_tx}");
 

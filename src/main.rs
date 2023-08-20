@@ -1,7 +1,6 @@
 use actix_web::{web, App, HttpServer};
 use diesel::pg::PgConnection;
 use diesel::r2d2::{self, ConnectionManager};
-use ethers::providers::{Provider, Http};
 use moka::sync::Cache;
 
 mod handlers;
