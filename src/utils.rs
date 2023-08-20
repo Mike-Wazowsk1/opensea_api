@@ -473,7 +473,7 @@ pub async fn get_lucky_block(
     mut connection: r2d2::PooledConnection<ConnectionManager<PgConnection>>,
 ) -> u128 {
     let value = info_lotto.load::<InfoLottoPoint>(&mut connection).unwrap();
-    u128::from_str(&value[0].last_payment).unwrap()
+    u128::from_str(&value[0].wining_block).unwrap()
 }
 pub async fn get_round(
     mut connection: r2d2::PooledConnection<ConnectionManager<PgConnection>>,
