@@ -43,7 +43,7 @@ pub struct InfoPoint {
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct InfoLottoPoint {
     pub last_payment : String,
-    pub wining_block : Option<String>,
+    pub wining_block : Option<i32>,
     pub round : Option<i32>,
     pub wbgl : Option<i32>
 }

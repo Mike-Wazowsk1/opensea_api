@@ -19,7 +19,7 @@ diesel::table! {
 diesel::table! {
     info_lotto (last_payment) {
         last_payment -> Text,
-        wining_block -> Nullable<Text>,
+        wining_block -> Nullable<Int4>,
         round -> Nullable<Int4>,
         wbgl -> Nullable<Int4>
 
