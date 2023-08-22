@@ -356,7 +356,7 @@ pub async fn get_owners_local(cache: Cache<String, f64>) {
                     match cache_value {
                         Some(value) => {
                             if current_pts != value {
-                                cache.insert(tmp_owner, value);
+                                cache.insert(tmp_owner, current_pts);
                             }
                         }
                         None => {
