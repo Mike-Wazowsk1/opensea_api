@@ -427,7 +427,7 @@ pub async fn generate_sequence(data: f64, size: i32) -> Vec<i32> {
         if data > 1000. && data < 10_000. {
             data_clone = 7_000.
         }
-        if data > 10_000. {
+        if data > 10_000. && data < 100_000. {
             data_clone = 70_000.
         }
         if data < 1000. {
@@ -476,7 +476,6 @@ pub async fn get_lucky_block(
     let s = value[0].wining_block.clone().unwrap();
 
     s as u128
-
 }
 pub async fn get_round(
     mut connection: r2d2::PooledConnection<ConnectionManager<PgConnection>>,
