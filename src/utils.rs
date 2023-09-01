@@ -365,18 +365,18 @@ pub async fn get_owners_local(cache: Cache<String, f64>) {
                             cache.insert(tmp_owner, current_pts);
                         }
                     };
-                    // let stored: Vec<(Arc<String>, f64)> = cache.iter().collect();
-                    // let mut stored_owners: Vec<String> = vec![];
-                    // for (s, _f) in stored {
-                    //     stored_owners.push(s.to_string())
-                    // }
-                    // let missing_owners: Vec<&String> = stored_owners
-                    //     .iter()
-                    //     .filter(|owner| !owners_real.contains(owner))
-                    //     .collect();
-                    // for missing_owner in missing_owners{
-                    //     cache.remove(missing_owner);
-                    // }
+                    let stored: Vec<(Arc<String>, f64)> = cache.iter().collect();
+                    let mut stored_owners: Vec<String> = vec![];
+                    for (s, _f) in stored {
+                        stored_owners.push(s.to_string())
+                    }
+                    let missing_owners: Vec<&String> = stored_owners
+                        .iter()
+                        .filter(|owner| !owners_real.contains(owner))
+                        .collect();
+                    for missing_owner in missing_owners{
+                        cache.remove(missing_owner);
+                    }
                 }
             }
         }
