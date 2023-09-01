@@ -349,9 +349,11 @@ pub async fn get_owners_local(cache: Cache<String, f64>) {
                     (ok_owner, current_pts)
                 });
                 tasks.push(task);
+                let mut owners_real = vec![];
 
                 for task in tasks {
                     let (tmp_owner, current_pts) = task.await.unwrap();
+                    owners_real.push(tmp_owner.clone());
                     let cache_value = cache.get(&tmp_owner);
                     match cache_value {
                         Some(value) => {
@@ -363,11 +365,19 @@ pub async fn get_owners_local(cache: Cache<String, f64>) {
                             cache.insert(tmp_owner, current_pts);
                         }
                     };
-                    // scores.insert(tmp_owner, current_pts);
+                    let stored: Vec<(Arc<String>, f64)> = cache.iter().collect();
+                    let mut stored_owners: Vec<String> = vec![];
+                    for (s, _f) in stored {
+                        stored_owners.push(s.to_string())
+                    }
+                    let missing_owners: Vec<&String> = stored_owners
+                        .iter()
+                        .filter(|owner| !owners_real.contains(owner))
+                        .collect();
+                    for missing_owner in missing_owners{
+                        cache.remove(missing_owner);
+                    }
                 }
-                // if !cache.contains_key(&new_ok_owner) {
-                //     cache.insert(new_ok_owner, 99.);
-                // }
             }
         }
         thread::sleep(Duration::from_millis(300000));
