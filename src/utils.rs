@@ -301,6 +301,7 @@ pub async fn get_owners_local(cache: Cache<String, f64>) {
     let provider = Provider::<Http>::try_from(MATICURL).unwrap();
     let tup = get_ids(&mut connection).await;
     let nfts: Vec<structs::TokenLocal> = tup.1;
+    let mut owners_real = vec![];
 
     loop {
         let tup = get_ids(connection).await;
@@ -335,6 +336,7 @@ pub async fn get_owners_local(cache: Cache<String, f64>) {
                 },
             };
 
+
             for owner in tmp_owners.owners {
                 let ok_owner: String = match owner {
                     Some(x) => x,
@@ -361,24 +363,36 @@ pub async fn get_owners_local(cache: Cache<String, f64>) {
 
                 for task in tasks {
                     let (tmp_owner, current_pts) = task.await.unwrap();
+                    owners_real.push(tmp_owner.clone());
                     let cache_value = cache.get(&tmp_owner);
                     match cache_value {
                         Some(value) => {
                             if current_pts != value {
-                                cache.insert(tmp_owner, value);
+                                cache.insert(tmp_owner, current_pts);
                             }
                         }
                         None => {
                             cache.insert(tmp_owner, current_pts);
                         }
                     };
-                    // scores.insert(tmp_owner, current_pts);
                 }
-                // if !cache.contains_key(&new_ok_owner) {
-                //     cache.insert(new_ok_owner, 99.);
-                // }
+       
             }
+
         }
+        let stored: Vec<(Arc<String>, f64)> = cache.iter().collect();
+        let mut stored_owners: Vec<String> = vec![];
+        for (s, _f) in stored {
+            stored_owners.push(s.to_string())
+        }
+        let missing_owners: Vec<&String> = stored_owners
+            .iter()
+            .filter(|owner| !owners_real.contains(owner))
+            .collect();
+        for missing_owner in missing_owners {
+            cache.remove(missing_owner);
+        }
+
         thread::sleep(Duration::from_millis(300000));
     }
 }
