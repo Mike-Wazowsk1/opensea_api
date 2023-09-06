@@ -1,6 +1,5 @@
-use self::schema::tokens::dsl::*;
 use self::schema::info_lotto::dsl::*;
-
+use self::schema::tokens::dsl::*;
 
 use actix_web::{get, web, HttpRequest, HttpResponse, Responder};
 use diesel::associations::HasTable;
@@ -10,7 +9,7 @@ use diesel::r2d2::{self, ConnectionManager};
 use ethers::prelude::*;
 use ethers::providers::{Http, Provider};
 use moka::sync::Cache;
-use opensea_api::models::{NewToken, Token, InfoLottoPoint};
+use opensea_api::models::{InfoLottoPoint, NewToken, Token};
 use opensea_api::*;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -51,11 +50,13 @@ pub async fn get_blockchain_data(
         })
 }
 #[get("/get_last_winners")]
-pub async fn get_last_winners(cache: web::Data<Cache<String, f64>>,pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>) -> impl Responder {
+pub async fn get_last_winners(
+    cache: web::Data<Cache<String, f64>>,
+    pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,
+) -> impl Responder {
     let mut owners_map: Vec<(Arc<String>, f64)> = cache.iter().collect();
     let connection: r2d2::PooledConnection<ConnectionManager<PgConnection>> = pool.get().unwrap();
 
-    
     let mut res = Vec::new();
 
     let mut sum_wbgl = 0.;
@@ -84,7 +85,9 @@ pub async fn get_last_winners(cache: web::Data<Cache<String, f64>>,pool: web::Da
 }
 
 #[get("/get_round")]
-pub async fn get_round(pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>) -> impl Responder {
+pub async fn get_round(
+    pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,
+) -> impl Responder {
     let connection: r2d2::PooledConnection<ConnectionManager<PgConnection>> = pool.get().unwrap();
     let r = utils::get_round(connection).await;
     return HttpResponse::Ok()
@@ -93,26 +96,40 @@ pub async fn get_round(pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection
 }
 
 #[get("/get_lucky_hash")]
-pub async fn get_lucky_hash(pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>) -> impl Responder {
+pub async fn get_lucky_hash(
+    pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,
+) -> impl Responder {
     let connection: r2d2::PooledConnection<ConnectionManager<PgConnection>> = pool.get().unwrap();
 
     let current_block = utils::get_current_block().await;
     let lucky_block = utils::get_lucky_block(connection).await;
     if current_block >= lucky_block {
         let lucky_hash = utils::get_block_hash(lucky_block).await;
+        let href = format!("https://bgl.bitaps.com/{lucky_block}");
+        let resp = structs::LastTradeResponse {
+            hash: lucky_hash,
+            href: href,
+        };
+
         return HttpResponse::Ok()
             .append_header(("Access-Control-Allow-Origin", "*"))
-            .json(lucky_hash);
+            .json(resp);
     }
+    let block = Address::zero().to_string();
+    let href = format!("https://bgl.bitaps.com/{block}");
+
+    let resp = structs::LastTradeResponse {
+        hash: block,
+        href: href,
+    };
+
     HttpResponse::Ok()
         .append_header(("Access-Control-Allow-Origin", "*"))
-        .json(Address::zero())
+        .json(resp)
 }
 
 #[get("/get_tickets_count")]
-pub async fn get_tickets_count(
-    cache: web::Data<Cache<String, f64>>,
-) -> impl Responder {
+pub async fn get_tickets_count(cache: web::Data<Cache<String, f64>>) -> impl Responder {
     let mut owners_map: Vec<(Arc<String>, f64)> = cache.iter().collect();
     owners_map.sort_by(|a, b| {
         let score_comparison = b.1.partial_cmp(&a.1).unwrap();
@@ -135,9 +152,7 @@ pub async fn get_tickets_count(
 }
 
 #[get("/get_tickets")]
-pub async fn get_tickets(
-    cache: web::Data<Cache<String, f64>>,
-) -> impl Responder {
+pub async fn get_tickets(cache: web::Data<Cache<String, f64>>) -> impl Responder {
     let mut owners_map: Vec<(Arc<String>, f64)> = cache.iter().collect();
 
     let mut sum_wbgl = 0.;
@@ -157,10 +172,7 @@ pub async fn get_tickets(
 }
 
 #[get("/get_owners")]
-pub async fn get_owners(
-    req: HttpRequest,
-    cache: web::Data<Cache<String, f64>>,
-) -> impl Responder {
+pub async fn get_owners(req: HttpRequest, cache: web::Data<Cache<String, f64>>) -> impl Responder {
     let q: String = req.query_string().replace("&", " ").replace("=", " ");
     let query: Vec<&str> = q.split(" ").collect();
     // let connection = pool.get().unwrap();
