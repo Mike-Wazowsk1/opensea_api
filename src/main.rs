@@ -20,9 +20,9 @@ async fn main() -> std::io::Result<()> {
     let cloned_cache = Arc::new(cache.clone());
 
     let cloned_cache2: Arc<Cache<String, f64>> = Arc::clone(&cloned_cache);
-    tokio::spawn(async move {
-        utils::watch(cloned_cache2).await;
-    });
+    // tokio::spawn(async move {
+    //     utils::watch(cloned_cache2).await;
+    // });
 
     tokio::spawn(async move {
         utils::get_owners_local(cloned_cache).await;
