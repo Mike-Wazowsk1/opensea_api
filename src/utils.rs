@@ -309,6 +309,7 @@ pub async fn get_owners_local(cache:  Arc<Cache<String, f64>>) {
     let mut owners_real = vec![];
 
     loop {
+        println!("Loop1");
         let tup = get_ids(connection).await;
         let token_ids = tup.0;
 
@@ -714,6 +715,6 @@ pub async fn watch(cache:  Arc<Cache<String, f64>> ) {
                 };
             }
         }
-        thread::sleep(Duration::from_secs(1));
+        thread::sleep(Duration::from_secs(10));
     }
 }
