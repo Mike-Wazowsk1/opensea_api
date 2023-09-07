@@ -118,8 +118,9 @@ pub async fn get_lucky_hash(
             .append_header(("Access-Control-Allow-Origin", "*"))
             .json(resp);
     }
-    let block = Address::zero().to_string();
-    let href = format!("https://bgl.bitaps.com/{block}");
+    let lucky_hash = utils::get_block_hash(lucky_block).await;
+    let block = lucky_hash;
+    let href = format!("https://bgl.bitaps.com/{lucky_block}");
 
     let resp = structs::LastTradeResponse {
         hash: block,
