@@ -393,6 +393,7 @@ pub async fn get_owners_local(cache: Cache<String, f64>) {
         for missing_owner in missing_owners {
             cache.remove(missing_owner);
         }
+        println!(owners_real);
 
         thread::sleep(Duration::from_millis(300000));
     }
@@ -711,7 +712,6 @@ pub async fn watch(cache: Cache<String, f64>) {
                 };
             }
 
-            println!("{:?}", current_dir.display());
         }
         thread::sleep(Duration::from_secs(1));
     }
