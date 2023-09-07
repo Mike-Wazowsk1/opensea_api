@@ -689,21 +689,21 @@ pub async fn watch(cache: Cache<String, f64>) {
                 let data = match get_tickets_local(cache.clone()).await {
                     Ok(x) => x,
                     Err(x) => {
-                        println!("{:?}", x);
+                        println!("Error local tickets: {:?}", x);
                         continue;
                     }
                 };
                 let mut file = match std::fs::File::create(path) {
                     Ok(x) => x,
                     Err(x) => {
-                        println!("{:?}", x);
+                        println!("Error create file: {:?}", x);
                         continue;
                     }
                 };
                 match serde_json::to_writer_pretty(&mut file, &data) {
                     Ok(_) => continue,
                     Err(x) => {
-                        println!("{:?}", x);
+                        println!("Error write json: {:?}", x);
                         continue;
                     }
                 };
