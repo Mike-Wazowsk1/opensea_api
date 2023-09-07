@@ -637,7 +637,7 @@ pub async fn is_old_round(
         let snapshots_path = current_dir.join("snapshots");
         let snapshot = format!("{lucky_block}.json");
         let path = Path::new(&snapshots_path).join(snapshot);
-        if path.exists() {
+        if path.is_dir() {
             let mut file = File::open(path).unwrap();
             let mut data = String::new();
             match file.read_to_string(&mut data) {
@@ -673,7 +673,7 @@ pub async fn watch(cache: Cache<String, f64>) {
     let current_dir = env::current_dir().unwrap();
     let snapshots_path = current_dir.join("snapshots");
     let path = Path::new(&snapshots_path);
-    if !path.exists() {
+    if !path.is_dir() {
         std::fs::create_dir(path).unwrap();
     }
 
