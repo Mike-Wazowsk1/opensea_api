@@ -15,9 +15,9 @@ async fn main() -> std::io::Result<()> {
     let clonned_cache = cache.clone();
     let clonned_cache2 = cache.clone();
     // let clonned_cache3 = cache.clone();
-    tokio::spawn(async move {
-        utils::watch(clonned_cache2).await;
-    });
+    // tokio::spawn(async move {
+    //     utils::watch(clonned_cache2).await;
+    // });
 
     tokio::spawn(async move {
         utils::get_owners_local(clonned_cache).await;
