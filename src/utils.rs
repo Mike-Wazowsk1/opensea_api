@@ -684,8 +684,10 @@ pub async fn watch(cache: Cache<String, f64>) {
             let value = info_lotto.load::<InfoLottoPoint>(connection).unwrap();
             let lucky_block = value[0].wining_block.clone().unwrap();
             let snapshot = format!("{lucky_block}.json");
+            let path = path.join(snapshot);
 
-            if !path.join(snapshot).exists() {
+
+            if !path.exists() {
                 let data = match get_tickets_local(cache.clone()).await {
                     Ok(x) => x,
                     Err(x) => {
