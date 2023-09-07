@@ -309,6 +309,7 @@ pub async fn get_owners_local(cache: Cache<String, f64>) {
     let mut owners_real = vec![];
 
     loop {
+        println!("Loop");
         let tup = get_ids(connection).await;
         let token_ids = tup.0;
 
