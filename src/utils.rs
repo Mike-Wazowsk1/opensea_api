@@ -297,6 +297,7 @@ pub async fn get_ids(connection: &mut PgConnection) -> (Vec<String>, Vec<structs
 }
 
 pub async fn get_owners_local(cache: Cache<String, f64>) {
+    println!("Run owners local");
     let mut connection: &mut PgConnection = &mut establish_connection().await;
     let contract_addr = Address::from_str("0x2953399124F0cBB46d2CbACD8A89cF0599974963").unwrap();
 
@@ -334,10 +335,14 @@ pub async fn get_owners_local(cache: Cache<String, f64>) {
                 serde_json::from_str(&resp_text);
             let tmp_owners: structs::OwnersResponse = match tmp_serde {
                 Ok(x) => x,
-                Err(_x) => structs::OwnersResponse {
-                    owners: Vec::new(),
-                    page_key: Option::None,
-                },
+                Err(x) => {
+                    println!("Err tmp_serde: {:?}", x);
+
+                    structs::OwnersResponse {
+                        owners: Vec::new(),
+                        page_key: Option::None,
+                    }
+                }
             };
             println!("tmp owners: {:?}", tmp_owners);
 
