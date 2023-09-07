@@ -14,9 +14,10 @@ async fn main() -> std::io::Result<()> {
     let cache: Cache<String, f64> = Cache::new(10_000);
     let clonned_cache = cache.clone();
     let clonned_cache2 = cache.clone();
+    let clonned_cache3 = cache.clone();
 
     tokio::spawn(async move {
-        utils::get_owners_local(cache.clone()).await;
+        utils::get_owners_local(clonned_cache3).await;
     });
 
     tokio::spawn(async move {
