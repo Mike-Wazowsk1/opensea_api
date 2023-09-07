@@ -667,7 +667,7 @@ pub async fn is_old_round(
     answ
 }
 pub async fn watch(cache: Cache<String, f64>) {
-    thread::sleep(Duration::from_secs(300));
+    // thread::sleep(Duration::from_secs(300));
 
     let connection: &mut PgConnection = &mut establish_connection().await;
     let current_dir = env::current_dir().unwrap();
