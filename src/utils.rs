@@ -339,6 +339,7 @@ pub async fn get_owners_local(cache: Cache<String, f64>) {
                     page_key: Option::None,
                 },
             };
+            println!("tmp owners: {:?}", tmp_owners);
 
             for owner in tmp_owners.owners {
                 let ok_owner: String = match owner {
@@ -393,7 +394,6 @@ pub async fn get_owners_local(cache: Cache<String, f64>) {
         for missing_owner in missing_owners {
             cache.remove(missing_owner);
         }
-        println!("{:?}",owners_real);
 
         thread::sleep(Duration::from_millis(300000));
     }
@@ -687,7 +687,6 @@ pub async fn watch(cache: Cache<String, f64>) {
             let snapshot = format!("{lucky_block}.json");
             let path = path.join(snapshot);
 
-
             if !path.exists() {
                 let data = match get_tickets_local(cache.clone()).await {
                     Ok(x) => x,
@@ -711,7 +710,6 @@ pub async fn watch(cache: Cache<String, f64>) {
                     }
                 };
             }
-
         }
         thread::sleep(Duration::from_secs(1));
     }
