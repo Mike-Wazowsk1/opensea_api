@@ -1,6 +1,6 @@
+use serde;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use serde;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct NFT {
@@ -17,8 +17,6 @@ pub struct NFT {
     pub is_disabled: bool,
     pub is_nsfw: bool,
 }
-
-
 
 #[derive(Debug, Deserialize, Serialize)]
 #[allow(dead_code)]
@@ -222,22 +220,25 @@ pub struct LastTradeResponse {
     pub href: String,
 }
 
-
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize,Clone)]
 #[allow(dead_code)]
-pub struct TicketResponse{
+pub struct TicketResponse {
     pub tickets: Vec<i32>,
-    pub map: HashMap<i32,TicketInfo>,
+    pub map: HashMap<i32, TicketInfo>,
 }
-#[derive(Serialize, Deserialize)]
-pub struct TicketInfo{
-    pub address:String,
-    pub color:String
+#[derive(Serialize, Deserialize,Clone)]
+pub struct TicketInfo {
+    pub address: String,
+}
+#[derive(Serialize, Deserialize,Clone)]
+
+pub struct IsOldRound {
+    pub b: bool,
+    pub data: TicketResponse,
 }
 
-
 #[derive(Serialize, Deserialize)]
-pub struct BlockChainData{
-    pub winning_block:u128,
-    pub blocks_before:u128
+pub struct BlockChainData {
+    pub winning_block: u128,
+    pub blocks_before: u128,
 }

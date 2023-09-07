@@ -12,7 +12,11 @@ use ethers::providers::{Http, Provider};
 use moka::sync::Cache;
 use opensea_api::models::Token;
 use opensea_api::*;
-use random_color::RandomColor;
+use std::fs::File;
+use std::io::Read;
+// use random_color::RandomColor;
+// use serde_json::json;
+use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -520,15 +524,15 @@ pub async fn get_minted_tickets(
     let ticket_count = get_ticket_count(sum_wbgl).await;
 
     let mut tickets = get_ticket_array(ticket_count).await;
-    let sequence = generate_sequence(sum_wbgl,current_block, ticket_count).await;
+    let sequence = generate_sequence(sum_wbgl, current_block, ticket_count).await;
 
     owners_map.iter().for_each(|(address, score)| {
-        let color = RandomColor::new().to_hex();
+        // let color = RandomColor::new().to_hex();
         colors.insert(
             i,
             structs::TicketInfo {
                 address: address.to_string(),
-                color,
+                // color,
             },
         );
         let tickets_for_user = (ticket_weight * score) as i32;
@@ -571,9 +575,7 @@ fn parse_digits(t_num: &str) -> Vec<i32> {
     t_num
 }
 
-pub async fn locked(
-    connection: &mut PgConnection,
-) -> bool {
+pub async fn is_locked(connection: &mut PgConnection) -> bool {
     let current_block = get_current_block().await;
     let value = info_lotto.load::<InfoLottoPoint>(connection).unwrap();
     let lucky_block = value[0].wining_block.clone().unwrap();
@@ -585,7 +587,7 @@ pub async fn get_win_tickets(h: String, l: i32) -> Vec<i32> {
         let winners = get_winners(h, 3);
         return winners[0..3].to_vec();
     }
-    if l == 10_000 {    
+    if l == 10_000 {
         let h = parse_digits(&h);
         let winners = get_winners(h, 4);
         return winners[0..4].to_vec();
@@ -598,15 +600,117 @@ pub async fn get_win_tickets(h: String, l: i32) -> Vec<i32> {
     return Vec::new();
 }
 
-pub async fn watch(){
-    let connection: &mut PgConnection = &mut establish_connection().await;
+pub async fn get_tickets_local(
+    cache: Cache<String, f64>,
+) -> std::result::Result<std::string::String, serde_json::Error> {
+    let mut owners_map: Vec<(Arc<String>, f64)> = cache.iter().collect();
+    let current_block = get_current_block().await;
 
-    loop{
-        if locked(connection).await{
+    let mut sum_wbgl = 0.;
+    for st in &owners_map {
+        sum_wbgl += st.1;
+    }
+    let (tickets, colors) = get_minted_tickets(sum_wbgl, current_block, &mut owners_map).await;
+
+    let resp = structs::TicketResponse {
+        tickets,
+        map: colors,
+    };
+    serde_json::to_string(&resp)
+}
+
+pub async fn is_old_round(
+    connection: r2d2::PooledConnection<ConnectionManager<PgConnection>>,
+) -> structs::IsOldRound {
+    let current_block = get_current_block().await;
+    let lucky_block = get_lucky_block(connection).await;
+    let mut answ = structs::IsOldRound {
+        b: false,
+        data: structs::TicketResponse {
+            tickets: Vec::new(),
+            map: HashMap::new(),
+        },
+    };
+
+    if current_block >= lucky_block as u128 {
+        let current_dir = env::current_dir().unwrap();
+        let snapshots_path = current_dir.join("snapshots");
+        let snapshot = format!("{lucky_block}.json");
+        let path = Path::new(&snapshots_path).join(snapshot);
+        if path.exists() {
+            let mut file = File::open(path).unwrap();
+            let mut data = String::new();
+            match file.read_to_string(&mut data) {
+                Ok(x) => x,
+                Err(x) => {
+                    println!("{:?}", x);
+                    0
+                }
+            };
+            let json: Result<structs::TicketResponse, serde_json::Error> =
+                serde_json::from_str(&data);
+
+            match json {
+                Ok(x) => {
+                    answ.b = true;
+                    answ.data = x;
+                }
+                Err(x) => {
+                    println!("{:?}", x);
+                    // answ.data;
+                }
+            };
+
+            // if
+        }
+    }
+    answ
+}
+pub async fn watch(cache: Cache<String, f64>) {
+    thread::sleep(Duration::from_secs(300));
+
+    let connection: &mut PgConnection = &mut establish_connection().await;
+    let current_dir = env::current_dir().unwrap();
+    let snapshots_path = current_dir.join("snapshots");
+    let path = Path::new(&snapshots_path);
+    if !path.exists() {
+        std::fs::create_dir(path).unwrap();
+    }
+
+    loop {
+        if is_locked(connection).await {
             let current_dir = env::current_dir().unwrap();
-            println!("{:?}",current_dir.display());
+
+            let value = info_lotto.load::<InfoLottoPoint>(connection).unwrap();
+            let lucky_block = value[0].wining_block.clone().unwrap();
+            let snapshot = format!("{lucky_block}.json");
+
+            if !path.join(snapshot).exists() {
+                let data = match get_tickets_local(cache.clone()).await {
+                    Ok(x) => x,
+                    Err(x) => {
+                        println!("{:?}", x);
+                        continue;
+                    }
+                };
+                let mut file = match std::fs::File::create(path) {
+                    Ok(x) => x,
+                    Err(x) => {
+                        println!("{:?}", x);
+                        continue;
+                    }
+                };
+                match serde_json::to_writer_pretty(&mut file, &data) {
+                    Ok(_) => continue,
+                    Err(x) => {
+                        println!("{:?}", x);
+                        continue;
+                    }
+                };
+            }
+
+            println!("{:?}", current_dir.display());
         }
         thread::sleep(Duration::from_secs(1));
-
     }
 }

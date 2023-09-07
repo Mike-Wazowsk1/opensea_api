@@ -154,7 +154,19 @@ pub async fn get_tickets_count(cache: web::Data<Cache<String, f64>>) -> impl Res
 }
 
 #[get("/get_tickets")]
-pub async fn get_tickets(cache: web::Data<Cache<String, f64>>) -> impl Responder {
+pub async fn get_tickets(
+    cache: web::Data<Cache<String, f64>>,
+    pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,
+) -> impl Responder {
+    let connection: r2d2::PooledConnection<ConnectionManager<PgConnection>> = pool.get().unwrap();
+    let is_old = utils::is_old_round(connection).await;
+    if is_old.b {
+        println!("Old data");
+        return HttpResponse::Ok()
+            .append_header(("Access-Control-Allow-Origin", "*"))
+            .json(is_old.data);
+    }
+
     let mut owners_map: Vec<(Arc<String>, f64)> = cache.iter().collect();
     let current_block = utils::get_current_block().await;
 

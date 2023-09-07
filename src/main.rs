@@ -13,12 +13,14 @@ async fn main() -> std::io::Result<()> {
     // let bgl = "https//127.0.0.1:8332";
     let cache: Cache<String, f64> = Cache::new(10_000);
     let clonned_cache = cache.clone();
+    let clonned_cache2 = cache.clone();
+
     tokio::spawn(async move {
-        utils::get_owners_local(clonned_cache).await;
+        utils::get_owners_local(cache.clone()).await;
     });
 
     tokio::spawn(async move {
-        utils::watch().await;
+        utils::watch(clonned_cache).await;
     });
 
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL");
@@ -33,7 +35,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(pool.clone()))
-            .app_data(web::Data::new(cache.clone()))
+            .app_data(web::Data::new(clonned_cache2.clone()))
             // .app_data(web::Data::new(provider.clone()))
             .route("/", web::get().to(|| async { "Actix REST API" }))
             .service(handlers::get_nfts)
