@@ -17,6 +17,10 @@ async fn main() -> std::io::Result<()> {
         utils::get_owners_local(clonned_cache).await;
     });
 
+    tokio::spawn(async move {
+        utils::watch().await;
+    });
+
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL");
     let manager = ConnectionManager::<PgConnection>::new(database_url);
     let pool: r2d2::Pool<ConnectionManager<PgConnection>> = r2d2::Pool::builder()

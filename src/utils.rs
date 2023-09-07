@@ -336,7 +336,6 @@ pub async fn get_owners_local(cache: Cache<String, f64>) {
                 },
             };
 
-
             for owner in tmp_owners.owners {
                 let ok_owner: String = match owner {
                     Some(x) => x,
@@ -376,9 +375,7 @@ pub async fn get_owners_local(cache: Cache<String, f64>) {
                         }
                     };
                 }
-       
             }
-
         }
         let stored: Vec<(Arc<String>, f64)> = cache.iter().collect();
         let mut stored_owners: Vec<String> = vec![];
@@ -434,7 +431,7 @@ fn calculate_hash<T: Hash>(t: &T) -> u64 {
     s.finish()
 }
 
-pub async fn generate_sequence(data: f64, size: i32) -> Vec<i32> {
+pub async fn generate_sequence(data: f64, current_block: u128, size: i32) -> Vec<i32> {
     let w = get_ticket_weight(data).await;
     let mut data_clone = data.clone();
     if w == 1. {
@@ -448,7 +445,9 @@ pub async fn generate_sequence(data: f64, size: i32) -> Vec<i32> {
             data_clone = 700.
         }
     }
-    let state = calculate_hash(&(data_clone as i32));
+    let key = format!("{data_clone}{current_block}");
+
+    let state = calculate_hash(&key);
     let mut r = <rand::rngs::StdRng as rand::SeedableRng>::seed_from_u64(state);
     let mut sequence = vec![];
 
@@ -500,6 +499,7 @@ pub async fn get_round(
 
 pub async fn get_minted_tickets(
     sum_wbgl: f64,
+    current_block: u128,
     owners_map: &mut Vec<(Arc<String>, f64)>,
 ) -> (Vec<i32>, HashMap<i32, structs::TicketInfo>) {
     let mut i = 0;
@@ -520,7 +520,7 @@ pub async fn get_minted_tickets(
     let ticket_count = get_ticket_count(sum_wbgl).await;
 
     let mut tickets = get_ticket_array(ticket_count).await;
-    let sequence = generate_sequence(sum_wbgl, ticket_count).await;
+    let sequence = generate_sequence(sum_wbgl,current_block, ticket_count).await;
 
     owners_map.iter().for_each(|(address, score)| {
         let color = RandomColor::new().to_hex();
@@ -571,13 +571,21 @@ fn parse_digits(t_num: &str) -> Vec<i32> {
     t_num
 }
 
+pub async fn locked(
+    connection: &mut PgConnection,
+) -> bool {
+    let current_block = get_current_block().await;
+    let value = info_lotto.load::<InfoLottoPoint>(connection).unwrap();
+    let lucky_block = value[0].wining_block.clone().unwrap();
+    current_block >= lucky_block as u128
+}
 pub async fn get_win_tickets(h: String, l: i32) -> Vec<i32> {
     if l == 1000 {
         let h = parse_digits(&h);
         let winners = get_winners(h, 3);
         return winners[0..3].to_vec();
     }
-    if l == 10_000 {
+    if l == 10_000 {    
         let h = parse_digits(&h);
         let winners = get_winners(h, 4);
         return winners[0..4].to_vec();
@@ -588,4 +596,17 @@ pub async fn get_win_tickets(h: String, l: i32) -> Vec<i32> {
         return winners[0..5].to_vec();
     }
     return Vec::new();
+}
+
+pub async fn watch(){
+    let connection: &mut PgConnection = &mut establish_connection().await;
+
+    loop{
+        if locked(connection).await{
+            let current_dir = env::current_dir().unwrap();
+            println!("{:?}",current_dir.display());
+        }
+        thread::sleep(Duration::from_secs(1));
+
+    }
 }

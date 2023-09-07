@@ -56,6 +56,7 @@ pub async fn get_last_winners(
 ) -> impl Responder {
     let mut owners_map: Vec<(Arc<String>, f64)> = cache.iter().collect();
     let connection: r2d2::PooledConnection<ConnectionManager<PgConnection>> = pool.get().unwrap();
+    let current_block = utils::get_current_block().await;
 
     let mut res = Vec::new();
 
@@ -63,7 +64,8 @@ pub async fn get_last_winners(
     for st in &owners_map {
         sum_wbgl += st.1;
     }
-    let (tickets, _colors) = utils::get_minted_tickets(sum_wbgl, &mut owners_map).await;
+    let (tickets, _colors) =
+        utils::get_minted_tickets(sum_wbgl, current_block, &mut owners_map).await;
 
     let lucky_block = utils::get_lucky_block(connection).await;
     let lucky_hash = utils::get_block_hash(lucky_block).await;
@@ -154,12 +156,14 @@ pub async fn get_tickets_count(cache: web::Data<Cache<String, f64>>) -> impl Res
 #[get("/get_tickets")]
 pub async fn get_tickets(cache: web::Data<Cache<String, f64>>) -> impl Responder {
     let mut owners_map: Vec<(Arc<String>, f64)> = cache.iter().collect();
+    let current_block = utils::get_current_block().await;
 
     let mut sum_wbgl = 0.;
     for st in &owners_map {
         sum_wbgl += st.1;
     }
-    let (tickets, colors) = utils::get_minted_tickets(sum_wbgl, &mut owners_map).await;
+    let (tickets, colors) =
+        utils::get_minted_tickets(sum_wbgl, current_block, &mut owners_map).await;
 
     let resp = structs::TicketResponse {
         tickets,
