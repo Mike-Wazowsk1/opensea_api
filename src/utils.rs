@@ -685,8 +685,9 @@ pub async fn watch(cache: Cache<String, f64>) {
     }
 
     loop {
+        println!("Loop2");
         if is_locked(connection).await {
-            let current_dir = env::current_dir().unwrap();
+            // let current_dir = env::current_dir().unwrap();
 
             let value = info_lotto.load::<InfoLottoPoint>(connection).unwrap();
             let lucky_block = value[0].wining_block.clone().unwrap();
