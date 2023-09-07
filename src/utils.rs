@@ -554,12 +554,12 @@ fn get_winners(vec: Vec<i32>, n: usize) -> Vec<i32> {
     let mut groups: Vec<Vec<i32>> = Vec::new();
     let mut res = vec![];
 
-    let mut i = vec.len();
+    let mut i: i32 = vec.len() as i32;
     while i > 0 {
-        let start = if i >= n { i - n } else { 0 };
-        let group = vec[start..i].to_vec();
+        let start = if i as usize >= n { i as usize - n } else { 0 };
+        let group = vec[start..i as usize].to_vec();
         groups.push(group);
-        i -= n;
+        i -= n as i32;
     }
 
     groups.reverse();
