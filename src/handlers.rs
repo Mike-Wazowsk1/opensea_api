@@ -69,7 +69,8 @@ pub async fn get_last_winners(
 
     let lucky_block = utils::get_lucky_block(connection).await;
     let lucky_hash = utils::get_block_hash(lucky_block).await;
-    let winners = utils::get_win_tickets(lucky_hash, tickets.len().try_into().unwrap()).await;
+    let mut winners = utils::get_win_tickets(lucky_hash, tickets.len().try_into().unwrap()).await;
+    winners.reverse();
     for w in winners {
         if tickets[w as usize] < owners_map.len().try_into().unwrap() && tickets[w as usize] >= 0 {
             let winner = owners_map[tickets[w as usize] as usize]
