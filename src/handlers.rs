@@ -170,14 +170,15 @@ pub async fn get_tickets(
     }
 
     let mut owners_map: Vec<(Arc<String>, f64)> = cache.iter().collect();
-    let current_block = utils::get_current_block().await;
+    let connection: r2d2::PooledConnection<ConnectionManager<PgConnection>> = pool.get().unwrap();
 
+    let lucky_block = utils::get_lucky_block(connection).await;
     let mut sum_wbgl = 0.;
     for st in &owners_map {
         sum_wbgl += st.1;
     }
     let (tickets, colors) =
-        utils::get_minted_tickets(sum_wbgl, current_block, &mut owners_map).await;
+        utils::get_minted_tickets(sum_wbgl, lucky_block, &mut owners_map).await;
 
     let resp = structs::TicketResponse {
         tickets,
