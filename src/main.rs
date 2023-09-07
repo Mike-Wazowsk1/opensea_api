@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use actix_web::{web, App, HttpServer};
 use diesel::pg::PgConnection;
 use diesel::r2d2::{self, ConnectionManager};
@@ -12,18 +14,19 @@ async fn main() -> std::io::Result<()> {
     dotenv::dotenv().ok();
     // let bgl = "https//127.0.0.1:8332";
     let cache: Cache<String, f64> = Cache::new(10_000);
-    let clonned_cache = cache.clone();
-    let clonned_cache2 = cache.clone();
+    // let clonned_cache = ca che.clone();
+    // let clonned_cache2 = cache.clone();
     // let clonned_cache3 = cache.clone();
-    // tokio::spawn(async move {
-    //     utils::watch(clonned_cache2).await;
-    // });
+    let cloned_cache = Arc::new(cache.clone());
 
+    let cloned_cache2: Arc<Cache<String, f64>> = Arc::clone(&cloned_cache);
     tokio::spawn(async move {
-        utils::get_owners_local(clonned_cache).await;
+        utils::watch(cloned_cache2).await;
     });
 
-
+    tokio::spawn(async move {
+        utils::get_owners_local(cloned_cache).await;
+    });
 
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL");
     let manager = ConnectionManager::<PgConnection>::new(database_url);

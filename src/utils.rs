@@ -296,7 +296,7 @@ pub async fn get_ids(connection: &mut PgConnection) -> (Vec<String>, Vec<structs
     (token_ids, nfts)
 }
 
-pub async fn get_owners_local(cache: Cache<String, f64>) {
+pub async fn get_owners_local(cache:  Arc<Cache<String, f64>>) {
     println!("Run owners local");
     let mut connection: &mut PgConnection = &mut establish_connection().await;
     let contract_addr = Address::from_str("0x2953399124F0cBB46d2CbACD8A89cF0599974963").unwrap();
@@ -309,7 +309,6 @@ pub async fn get_owners_local(cache: Cache<String, f64>) {
     let mut owners_real = vec![];
 
     loop {
-        println!("Loop");
         let tup = get_ids(connection).await;
         let token_ids = tup.0;
 
@@ -338,15 +337,12 @@ pub async fn get_owners_local(cache: Cache<String, f64>) {
                 Ok(x) => x,
                 Err(x) => {
                     println!("Err tmp_serde: {:?}", x);
-
                     structs::OwnersResponse {
                         owners: Vec::new(),
                         page_key: Option::None,
                     }
                 }
             };
-            println!("tmp owners: {:?}", tmp_owners);
-
             for owner in tmp_owners.owners {
                 let ok_owner: String = match owner {
                     Some(x) => x,
@@ -608,7 +604,7 @@ pub async fn get_win_tickets(h: String, l: i32) -> Vec<i32> {
 }
 
 pub async fn get_tickets_local(
-    cache: Cache<String, f64>,
+    cache:  Arc<Cache<String, f64>> 
 ) -> std::result::Result<std::string::String, serde_json::Error> {
     let mut owners_map: Vec<(Arc<String>, f64)> = cache.iter().collect();
     let current_block = get_current_block().await;
@@ -673,7 +669,7 @@ pub async fn is_old_round(
     }
     answ
 }
-pub async fn watch(cache: Cache<String, f64>) {
+pub async fn watch(cache:  Arc<Cache<String, f64>> ) {
     // thread::sleep(Duration::from_secs(300));
 
     let connection: &mut PgConnection = &mut establish_connection().await;
