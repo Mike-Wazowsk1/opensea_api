@@ -294,7 +294,6 @@ pub async fn get_ids(connection: &mut PgConnection) -> (Vec<String>, Vec<structs
 }
 
 pub async fn get_owners_local(cache:  Arc<Cache<String, f64>>) {
-    println!("Run owners local");
     let mut connection: &mut PgConnection = &mut establish_connection().await;
     let contract_addr = Address::from_str("0x2953399124F0cBB46d2CbACD8A89cF0599974963").unwrap();
 
@@ -306,7 +305,6 @@ pub async fn get_owners_local(cache:  Arc<Cache<String, f64>>) {
     let mut owners_real = vec![];
 
     loop {
-        println!("Loop1");
         let tup = get_ids(connection).await;
         let token_ids = tup.0;
 
@@ -586,7 +584,6 @@ pub async fn get_win_tickets(h: String, l: i32) -> Vec<i32> {
     if l == 1000 {
         let h = parse_digits(&h);
         let winners: Vec<i32> = get_winners(h, 3);
-        println!("Winners: {:?}",winners);
         return winners[0..3].to_vec();
     }
     if l == 10_000 {
