@@ -230,12 +230,12 @@ pub struct TicketResponse {
 pub struct TicketInfo {
     pub address: String,
 }
-#[derive(Serialize, Deserialize,Clone)]
+// #[derive(Serialize, Deserialize,Clone)]
 
-pub struct IsOldRound {
-    pub b: bool,
-    pub data: TicketResponse,
-}
+// pub struct IsOldRound {
+//     pub b: bool,
+//     pub data: TicketResponse,
+// }
 
 #[derive(Serialize, Deserialize)]
 pub struct BlockChainData {
