@@ -141,7 +141,7 @@ pub async fn get_lucky_hash(
 
     let lucky_hash = utils::get_block_hash(last_lucky_block).await;
     let block = lucky_hash;
-    let href = format!("https://bgl.bitaps.com/{lucky_block}");
+    let href = format!("https://bgl.bitaps.com/{last_lucky_block}");
 
     let resp = structs::LastTradeResponse {
         hash: block,
