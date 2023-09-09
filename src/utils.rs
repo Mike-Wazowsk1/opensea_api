@@ -536,8 +536,8 @@ pub async fn get_minted_tickets(
         );
         let tickets_for_user = (ticket_weight * score) as i32;
         for _j in 0..tickets_for_user {
-            if j as usize <= sequence.len() {
-                if sequence[j as usize] as usize <= tickets.len() {
+            if (j as usize) < sequence.len() {
+                if (sequence[j as usize] as usize) < tickets.len() {
                     tickets[sequence[j as usize] as usize] = i;
                     j += 1;
                 }

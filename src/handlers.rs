@@ -79,7 +79,7 @@ pub async fn get_last_winners(
                 .to_string();
             res.push(winner);
         } else {
-            res.push("there are no winners yet".to_string())
+            res.push("no winner".to_string())
         }
     }
     return HttpResponse::Ok()
