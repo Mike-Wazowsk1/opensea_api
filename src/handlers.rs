@@ -79,7 +79,7 @@ pub async fn get_last_winners(
                 .to_string();
             res.push(winner);
         } else {
-            res.push("No winner".to_string())
+            res.push("there are no winners yet".to_string())
         }
     }
     return HttpResponse::Ok()
@@ -100,6 +100,7 @@ pub async fn get_round(
 
 #[get("/get_lucky_hash")]
 pub async fn get_lucky_hash(
+    cache: web::Data<Cache<String, f64>>,
     pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,
 ) -> impl Responder {
     let connection: r2d2::PooledConnection<ConnectionManager<PgConnection>> = pool.get().unwrap();
@@ -107,6 +108,7 @@ pub async fn get_lucky_hash(
     let current_block = utils::get_current_block().await;
     let lucky_block = utils::get_lucky_block(connection).await;
     if current_block >= lucky_block {
+        cache.insert("last_lucky_hash".to_string(), lucky_block as f64);
         let lucky_hash = utils::get_block_hash(lucky_block).await;
         let href = format!("https://bgl.bitaps.com/{lucky_block}");
         let resp = structs::LastTradeResponse {
@@ -118,7 +120,13 @@ pub async fn get_lucky_hash(
             .append_header(("Access-Control-Allow-Origin", "*"))
             .json(resp);
     }
-    let lucky_hash = utils::get_block_hash(lucky_block).await;
+    let last_lucky_block = match cache.get("last_lucky_hash"){
+        Some(x) =>x,
+        None =>10e99
+    };
+    let last_lucky_block = u128::from(last_lucky_block as u64);
+
+    let lucky_hash = utils::get_block_hash(last_lucky_block).await;
     let block = lucky_hash;
     let href = format!("https://bgl.bitaps.com/{lucky_block}");
 
