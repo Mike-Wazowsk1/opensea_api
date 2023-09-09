@@ -70,6 +70,11 @@ pub async fn get_last_winners(
     let lucky_block = utils::get_lucky_block(connection).await;
     let lucky_hash = utils::get_block_hash(lucky_block).await;
     let mut winners = utils::get_win_tickets(lucky_hash, tickets.len().try_into().unwrap()).await;
+    if winners == vec![-1000, -1000, -1000] {
+        return HttpResponse::Ok()
+            .append_header(("Access-Control-Allow-Origin", "*"))
+            .json(vec!["", "there are no winners yet", ""]);
+    }
     winners.reverse();
     for w in winners {
         if tickets[w as usize] < owners_map.len().try_into().unwrap() && tickets[w as usize] >= 0 {
@@ -120,9 +125,9 @@ pub async fn get_lucky_hash(
             .append_header(("Access-Control-Allow-Origin", "*"))
             .json(resp);
     }
-    let last_lucky_block = match cache.get("last_lucky_hash"){
-        Some(x) =>x,
-        None =>10e99
+    let last_lucky_block = match cache.get("last_lucky_hash") {
+        Some(x) => x,
+        None => 10e99,
     };
     let last_lucky_block = u128::from(last_lucky_block as u64);
 
@@ -176,8 +181,7 @@ pub async fn get_tickets(
     for st in &owners_map {
         sum_wbgl += st.1;
     }
-    let (tickets, colors) =
-        utils::get_minted_tickets(sum_wbgl, lucky_block, &mut owners_map).await;
+    let (tickets, colors) = utils::get_minted_tickets(sum_wbgl, lucky_block, &mut owners_map).await;
 
     let resp = structs::TicketResponse {
         tickets,

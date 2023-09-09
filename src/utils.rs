@@ -588,16 +588,25 @@ pub async fn get_win_tickets(h: String, l: i32) -> Vec<i32> {
     if l == 1000 {
         let h = parse_digits(&h);
         let winners: Vec<i32> = get_winners(h, 3);
+        if winners.len() == 0 {
+            return vec![-1000, -1000, -1000];
+        }
         return winners[0..3].to_vec();
     }
     if l == 10_000 {
         let h = parse_digits(&h);
         let winners = get_winners(h, 4);
+        if winners.len() == 0 {
+            return vec![-1000, -1000, -1000];
+        }
         return winners[0..4].to_vec();
     }
     if l == 100_000 {
         let h = parse_digits(&h);
         let winners = get_winners(h, 5);
+        if winners.len() == 0 {
+            return vec![-1000, -1000, -1000];
+        }
         return winners[0..5].to_vec();
     }
     return Vec::new();
