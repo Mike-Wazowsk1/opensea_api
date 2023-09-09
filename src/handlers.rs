@@ -54,7 +54,15 @@ pub async fn get_last_winners(
     cache: web::Data<Cache<String, f64>>,
     pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,
 ) -> impl Responder {
-    let mut owners_map: Vec<(Arc<String>, f64)> = cache.iter().collect();
+    let owners_map_t: Vec<(Arc<String>, f64)> = cache.iter().collect();
+
+    let mut owners_map: Vec<(Arc<String>, f64)> = vec![];
+    for (k, v) in owners_map_t {
+        if *k == "last_lucky_hash" {
+            continue;
+        }
+        owners_map.push((k, v));
+    }
     let connection: r2d2::PooledConnection<ConnectionManager<PgConnection>> = pool.get().unwrap();
     let current_block = utils::get_current_block().await;
 
@@ -147,7 +155,15 @@ pub async fn get_lucky_hash(
 
 #[get("/get_tickets_count")]
 pub async fn get_tickets_count(cache: web::Data<Cache<String, f64>>) -> impl Responder {
-    let mut owners_map: Vec<(Arc<String>, f64)> = cache.iter().collect();
+    let owners_map_t: Vec<(Arc<String>, f64)> = cache.iter().collect();
+
+    let mut owners_map: Vec<(Arc<String>, f64)> = vec![];
+    for (k, v) in owners_map_t {
+        if *k == "last_lucky_hash" {
+            continue;
+        }
+        owners_map.push((k, v));
+    }
     owners_map.sort_by(|a, b| {
         let score_comparison = b.1.partial_cmp(&a.1).unwrap();
         if score_comparison == std::cmp::Ordering::Equal {
@@ -173,7 +189,16 @@ pub async fn get_tickets(
     cache: web::Data<Cache<String, f64>>,
     pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,
 ) -> impl Responder {
-    let mut owners_map: Vec<(Arc<String>, f64)> = cache.iter().collect();
+    let owners_map_t: Vec<(Arc<String>, f64)> = cache.iter().collect();
+
+    let mut owners_map: Vec<(Arc<String>, f64)> = vec![];
+    for (k, v) in owners_map_t {
+        if *k == "last_lucky_hash" {
+            continue;
+        }
+        owners_map.push((k, v));
+    }
+
     let connection: r2d2::PooledConnection<ConnectionManager<PgConnection>> = pool.get().unwrap();
 
     let lucky_block = utils::get_lucky_block(connection).await;
@@ -249,7 +274,15 @@ pub async fn get_owners(req: HttpRequest, cache: web::Data<Cache<String, f64>>) 
     //     }
     // }
 
-    let mut owners_map: Vec<(Arc<String>, f64)> = cache.iter().collect();
+    let owners_map_t: Vec<(Arc<String>, f64)> = cache.iter().collect();
+
+    let mut owners_map: Vec<(Arc<String>, f64)> = vec![];
+    for (k, v) in owners_map_t {
+        if *k == "last_lucky_hash" {
+            continue;
+        }
+        owners_map.push((k, v));
+    }
 
     owners_map.sort_by(|a, b| {
         let score_comparison = b.1.partial_cmp(&a.1).unwrap();
@@ -397,7 +430,15 @@ pub async fn get_payment(
     //     }
     // }
 
-    let mut owners_map: Vec<(Arc<String>, f64)> = cache.iter().collect();
+    let owners_map_t: Vec<(Arc<String>, f64)> = cache.iter().collect();
+
+    let mut owners_map: Vec<(Arc<String>, f64)> = vec![];
+    for (k, v) in owners_map_t {
+        if *k == "last_lucky_hash" {
+            continue;
+        }
+        owners_map.push((k, v));
+    }
     let wgbl_score = utils::wbgl(&mut connection).await;
 
     owners_map.sort_by(|a, b| {
