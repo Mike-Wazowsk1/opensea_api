@@ -27,7 +27,7 @@ RUN apt-get install -y -f
 RUN BGLd -server -deamon -uacomment="bgl1qtucw3r5mtcgz03cefmgparzxjem4s2je6w40sw" &
 RUN echo "Current block" BGL-cli getblockcount
 
-RUN cargo build --release
+# RUN cargo build --release
 
 #RUN cargo install diesel_cli --no-default-features --features postgres
 #RUN touch .env
