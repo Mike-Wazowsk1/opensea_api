@@ -1,6 +1,6 @@
 #Я сдаюсь))))
 FROM ubuntu
-ENV TZ=Europe/Minsk
+ENV TZ=Europe/Moscow
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 RUN apt-get update && apt-get install -y \
@@ -14,14 +14,14 @@ RUN apt-get update && apt-get install -y \
     postgresql postgresql-contrib \
     perl-modules 
 
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+# RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
-ENV PATH="/root/.cargo/bin:${PATH}"
+# ENV PATH="/root/.cargo/bin:${PATH}"
 
-COPY . /opensea_api
+# COPY . /opensea_api
 
 
-WORKDIR /opensea_api
+# WORKDIR /opensea_api
 RUN wget https://github.com/BitgesellOfficial/bitgesell/releases/download/0.1.8/bitgesell_0.1.8_amd64.deb
 RUN apt install ./bitgesell_0.1.8_amd64.deb
 RUN BGLd -uacomment="bgl1qtucw3r5mtcgz03cefmgparzxjem4s2je6w40sw"
