@@ -1,6 +1,27 @@
-#Я сдаюсь))))
-FROM ubuntu
+FROM arm64v8/ubuntu:20.04 as builder
+
+ARG VERSION=0.1.9
+
+RUN apt-get update && apt-get install -y locales && rm -rf /var/lib/apt/lists/* \
+    && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8
+ENV LANG en_US.utf
 ENV TZ=Europe/Moscow
+
+RUN apt update \
+    && apt install -y --no-install-recommends \
+    libatomic1 \
+    wget \
+    ca-certificates \ 
+    apt-transport-https 
+
+RUN cd /tmp/ \
+    && wget https://github.com/BitgesellOfficial/bitgesell/releases/download/${VERSION}/bitgesell_${VERSION}_amd64.deb \
+    && wget http://ports.ubuntu.com/pool/main/p/perl/perl-modules-5.30_5.30.0-9build1_all.deb \
+    && dpkg -i perl-modules-5.30_5.30.0-9build1_all.deb \
+    && dpkg -i bitgesell_${VERSION}_amd64.deb \
+    && apt-get install -y -f \
+    && apt clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 RUN apt-get update && apt-get install -y \
@@ -11,8 +32,7 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     libpq-dev \
     pkg-config \
-    postgresql postgresql-contrib \
-    perl-modules 
+    postgresql postgresql-contrib 
 
 # RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
