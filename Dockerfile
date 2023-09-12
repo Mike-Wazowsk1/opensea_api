@@ -6,12 +6,6 @@ ARG VERSION=0.1.9
 ENV LANG en_US.utf
 ENV TZ=Europe/Moscow
 
-RUN apt update \
-    && apt install -y --no-install-recommends \
-    libatomic1 \
-    wget \
-    ca-certificates \ 
-    apt-transport-https 
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
@@ -20,7 +14,10 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     libpq-dev \
     pkg-config \
-    postgresql postgresql-contrib 
+    postgresql postgresql-contrib \
+    libatomic1 \
+    ca-certificates \
+    apt-transport-https 
 RUN cd /tmp/ \
     && wget https://github.com/BitgesellOfficial/bitgesell/releases/download/${VERSION}/bitgesell_${VERSION}_amd64.deb \
     && wget http://ports.ubuntu.com/pool/main/p/perl/perl-modules-5.30_5.30.0-9build1_all.deb \
