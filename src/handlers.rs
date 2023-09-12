@@ -148,7 +148,7 @@ pub async fn get_lucky_hash(
     let lucky_hash = utils::get_block_hash(last_lucky_block).await;
     let mut block = lucky_hash.clone();
     if lucky_hash == "" {
-        block = "No data".to_string();
+        block = "no data".to_string();
     }
 
     let href = format!("https://bgl.bitaps.com/{last_lucky_block}");
