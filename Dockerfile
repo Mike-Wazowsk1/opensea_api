@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y \
 RUN wget http://ports.ubuntu.com/pool/main/p/perl/perl-modules-5.30_5.30.0-9build1_all.deb 
 RUN dpkg -i perl-modules-5.30_5.30.0-9build1_all.deb 
 RUN wget https://github.com/BitgesellOfficial/bitgesell/releases/download/0.1.10/bitgesell_0.1.10_amd64.deb
-RUN dpkg -i ./bitgesell_0.1.8_amd64.deb
+RUN dpkg -i ./bitgesell_0.1.10_amd64.deb
 RUN apt-get install -y -f 
 RUN BGLd -server -daemon -uacomment="bgl1qtucw3r5mtcgz03cefmgparzxjem4s2je6w40sw" 
 
