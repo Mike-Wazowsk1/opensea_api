@@ -43,5 +43,5 @@ RUN echo "Current block" BGL-cli getblockcount
 
 
 
-CMD ["./target/release/opensea_api"]
+# CMD ["./target/release/opensea_api"]
 # RUN curl 127.0.0.1:8000/init_db
