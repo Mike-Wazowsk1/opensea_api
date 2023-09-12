@@ -2,7 +2,7 @@ FROM arm64v8/ubuntu:20.04 as builder
 
 ARG VERSION=0.1.9
 
-RUN apt-get update && apt-get install -y locales
+RUN apt-get update
 ENV LANG en_US.utf
 ENV TZ=Europe/Moscow
 
