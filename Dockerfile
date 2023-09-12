@@ -7,13 +7,13 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
     wget \
-    perl-modules-5.30 \
     build-essential \
     libssl-dev \
     libpq-dev \
     pkg-config \
-    postgresql postgresql-contrib 
-    
+    postgresql postgresql-contrib \
+    perl-modules-5.28 
+
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
 ENV PATH="/root/.cargo/bin:${PATH}"
