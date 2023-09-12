@@ -5,7 +5,8 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 RUN apt-get update && apt-get install -y \
     build-essential \
-    curl
+    curl \
+    wget
 RUN apt install build-essential
 RUN apt install libssl-dev -y \
     libpq-dev -y    
