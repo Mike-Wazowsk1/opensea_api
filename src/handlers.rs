@@ -58,13 +58,12 @@ pub async fn get_last_winners(
 
     let mut owners_map: Vec<(Arc<String>, f64)> = vec![];
     for (k, v) in owners_map_t {
-        if *k == "last_lucky_hash" {
+        if *k == "last_lucky_hash" || *k == "last_lucky_wbgl" {
             continue;
         }
         owners_map.push((k, v));
     }
     let connection: r2d2::PooledConnection<ConnectionManager<PgConnection>> = pool.get().unwrap();
-    let current_block = utils::get_current_block().await;
 
     let mut res = Vec::new();
 
@@ -72,10 +71,17 @@ pub async fn get_last_winners(
     for st in &owners_map {
         sum_wbgl += st.1;
     }
+    let current_block = utils::get_current_block().await;
+    let lucky_block = utils::get_lucky_block(connection).await;
+    if current_block >= lucky_block {
+        sum_wbgl = match cache.get("last_lucky_wbgl") {
+            Some(x) => x,
+            None => 700.,
+        };
+    }
     let (tickets, _colors) =
         utils::get_minted_tickets(sum_wbgl, current_block, &mut owners_map).await;
 
-    let lucky_block = utils::get_lucky_block(connection).await;
     let lucky_hash = utils::get_block_hash(lucky_block).await;
     let mut winners = utils::get_win_tickets(lucky_hash, tickets.len().try_into().unwrap()).await;
     if winners == vec![-1000, -1000, -1000] {
@@ -140,7 +146,11 @@ pub async fn get_lucky_hash(
     let last_lucky_block = u128::from(last_lucky_block as u64);
 
     let lucky_hash = utils::get_block_hash(last_lucky_block).await;
-    let block = lucky_hash;
+    let mut block = lucky_hash.clone();
+    if lucky_hash == "" {
+        block = "No data".to_string();
+    }
+
     let href = format!("https://bgl.bitaps.com/{last_lucky_block}");
 
     let resp = structs::LastTradeResponse {
@@ -154,12 +164,17 @@ pub async fn get_lucky_hash(
 }
 
 #[get("/get_tickets_count")]
-pub async fn get_tickets_count(cache: web::Data<Cache<String, f64>>) -> impl Responder {
+pub async fn get_tickets_count(
+    cache: web::Data<Cache<String, f64>>,
+    pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,
+) -> impl Responder {
+    let connection: r2d2::PooledConnection<ConnectionManager<PgConnection>> = pool.get().unwrap();
+
     let owners_map_t: Vec<(Arc<String>, f64)> = cache.iter().collect();
 
     let mut owners_map: Vec<(Arc<String>, f64)> = vec![];
     for (k, v) in owners_map_t {
-        if *k == "last_lucky_hash" {
+        if *k == "last_lucky_hash" || *k == "last_lucky_wbgl" {
             continue;
         }
         owners_map.push((k, v));
@@ -176,7 +191,14 @@ pub async fn get_tickets_count(cache: web::Data<Cache<String, f64>>) -> impl Res
     for st in &owners_map {
         sum_wbgl += st.1;
     }
-
+    let current_block = utils::get_current_block().await;
+    let lucky_block = utils::get_lucky_block(connection).await;
+    if current_block >= lucky_block {
+        sum_wbgl = match cache.get("last_lucky_wbgl") {
+            Some(x) => x,
+            None => 700.,
+        };
+    }
     let ticket_count = utils::get_ticket_count(sum_wbgl).await;
 
     HttpResponse::Ok()
@@ -193,7 +215,7 @@ pub async fn get_tickets(
 
     let mut owners_map: Vec<(Arc<String>, f64)> = vec![];
     for (k, v) in owners_map_t {
-        if *k == "last_lucky_hash" {
+        if *k == "last_lucky_hash" || *k == "last_lucky_wbgl" {
             continue;
         }
         owners_map.push((k, v));
@@ -201,10 +223,17 @@ pub async fn get_tickets(
 
     let connection: r2d2::PooledConnection<ConnectionManager<PgConnection>> = pool.get().unwrap();
 
-    let lucky_block = utils::get_lucky_block(connection).await;
     let mut sum_wbgl = 0.;
     for st in &owners_map {
         sum_wbgl += st.1;
+    }
+    let current_block = utils::get_current_block().await;
+    let lucky_block = utils::get_lucky_block(connection).await;
+    if current_block >= lucky_block {
+        sum_wbgl = match cache.get("last_lucky_wbgl") {
+            Some(x) => x,
+            None => 700.,
+        };
     }
     let (tickets, colors) = utils::get_minted_tickets(sum_wbgl, lucky_block, &mut owners_map).await;
 
@@ -219,7 +248,13 @@ pub async fn get_tickets(
 }
 
 #[get("/get_owners")]
-pub async fn get_owners(req: HttpRequest, cache: web::Data<Cache<String, f64>>) -> impl Responder {
+pub async fn get_owners(
+    req: HttpRequest,
+    cache: web::Data<Cache<String, f64>>,
+    pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,
+) -> impl Responder {
+    let connection: r2d2::PooledConnection<ConnectionManager<PgConnection>> = pool.get().unwrap();
+
     let q: String = req.query_string().replace("&", " ").replace("=", " ");
     let query: Vec<&str> = q.split(" ").collect();
     // let connection = pool.get().unwrap();
@@ -278,7 +313,7 @@ pub async fn get_owners(req: HttpRequest, cache: web::Data<Cache<String, f64>>) 
 
     let mut owners_map: Vec<(Arc<String>, f64)> = vec![];
     for (k, v) in owners_map_t {
-        if *k == "last_lucky_hash" {
+        if *k == "last_lucky_hash" || *k == "last_lucky_wbgl" {
             continue;
         }
         owners_map.push((k, v));
@@ -295,6 +330,15 @@ pub async fn get_owners(req: HttpRequest, cache: web::Data<Cache<String, f64>>) 
     let mut sum_wbgl = 0.;
     for st in &owners_map {
         sum_wbgl += st.1;
+    }
+
+    let current_block = utils::get_current_block().await;
+    let lucky_block = utils::get_lucky_block(connection).await;
+    if current_block >= lucky_block {
+        sum_wbgl = match cache.get("last_lucky_wbgl") {
+            Some(x) => x,
+            None => 700.,
+        };
     }
 
     let wbgl_points = utils::get_ticket_weight(sum_wbgl).await;
@@ -434,7 +478,7 @@ pub async fn get_payment(
 
     let mut owners_map: Vec<(Arc<String>, f64)> = vec![];
     for (k, v) in owners_map_t {
-        if *k == "last_lucky_hash" {
+        if *k == "last_lucky_hash" || *k == "last_lucky_wbgl" {
             continue;
         }
         owners_map.push((k, v));

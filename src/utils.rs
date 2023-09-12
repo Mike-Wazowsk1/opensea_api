@@ -391,7 +391,7 @@ pub async fn get_owners_local(cache: Arc<Cache<String, f64>>) {
             .collect();
         for missing_owner in missing_owners {
 
-            if missing_owner == "last_lucky_hash"{
+            if missing_owner == "last_lucky_hash" || missing_owner == "last_lucky_wbgl"{
                 continue
             }
             cache.remove(missing_owner);
