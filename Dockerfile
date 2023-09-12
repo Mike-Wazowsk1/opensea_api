@@ -6,12 +6,14 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
-    wget
-RUN apt install build-essential
-RUN apt install libssl-dev -y \
-    libpq-dev -y    
-RUN apt install pkg-config -y
-RUN apt install postgresql postgresql-contrib -y
+    wget \
+    perl-modules-5.30 \
+    build-essential \
+    libssl-dev \
+    libpq-dev \
+    pkg-config \
+    postgresql postgresql-contrib 
+    
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
 ENV PATH="/root/.cargo/bin:${PATH}"
