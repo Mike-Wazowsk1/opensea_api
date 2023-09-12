@@ -18,14 +18,7 @@ RUN apt-get update && apt-get install -y \
     libatomic1 \
     ca-certificates \
     apt-transport-https 
-RUN cd /tmp/ \
-    && wget https://github.com/BitgesellOfficial/bitgesell/releases/download/${VERSION}/bitgesell_${VERSION}_amd64.deb \
-    && wget http://ports.ubuntu.com/pool/main/p/perl/perl-modules-5.30_5.30.0-9build1_all.deb \
-    && dpkg -i perl-modules-5.30_5.30.0-9build1_all.deb \
-    && dpkg -i bitgesell_${VERSION}_amd64.deb \
-    && apt-get install -y -f \
-    && apt clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
+    
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 
