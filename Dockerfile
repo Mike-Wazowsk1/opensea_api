@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     pkg-config \
     postgresql postgresql-contrib \
-    perl-modules-5.28 
+    perl-modules-5.26 
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
