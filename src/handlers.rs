@@ -80,7 +80,7 @@ pub async fn get_last_winners(
         };
     }
     let (tickets, _colors) =
-        utils::get_minted_tickets(sum_wbgl, current_block, &mut owners_map).await;
+        utils::get_minted_tickets(sum_wbgl, lucky_block, &mut owners_map).await;
 
     let lucky_hash = utils::get_block_hash(lucky_block).await;
     let mut winners = utils::get_win_tickets(lucky_hash, tickets.len().try_into().unwrap()).await;
