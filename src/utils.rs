@@ -421,9 +421,9 @@ pub async fn get_owners_local(cache: Arc<Cache<String, f64>>) {
             }
             cache.insert("last_lucky_block".to_string(), lucky_block as f64);
             cache.insert("last_lucky_wbgl".to_string(), sum_wbgl as f64);
-            let dir = env::current_dir().unwrap();
+            let mut dir = env::current_dir().unwrap();
             // println!("{:?}", dir);
-            dir.join("/snapshots");
+            dir = dir.join("/snapshots");
             let filename = format!("{lucky_block}.json");
             let file = match std::fs::File::create(dir.join(&filename)) {
                 Ok(x) => x,
