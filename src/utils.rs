@@ -12,6 +12,7 @@ use ethers::providers::{Http, Provider};
 use moka::sync::Cache;
 use opensea_api::models::Token;
 use opensea_api::*;
+use std::io::{BufWriter, Write};
 // use random_color::RandomColor;
 // use serde_json::json;
 use std::str::FromStr;
@@ -293,6 +294,13 @@ pub async fn get_ids(connection: &mut PgConnection) -> (Vec<String>, Vec<structs
     (token_ids, nfts)
 }
 
+pub async fn get_winning_block(connection: &mut PgConnection) -> u128 {
+    let value = info_lotto.load::<InfoLottoPoint>(connection).unwrap();
+    let s = value[0].wining_block.clone().unwrap();
+
+    s as u128
+}
+
 pub async fn get_owners_local(cache: Arc<Cache<String, f64>>) {
     let mut connection: &mut PgConnection = &mut establish_connection().await;
     let contract_addr = Address::from_str("0x2953399124F0cBB46d2CbACD8A89cF0599974963").unwrap();
@@ -390,13 +398,53 @@ pub async fn get_owners_local(cache: Arc<Cache<String, f64>>) {
             .filter(|owner| !owners_real.contains(owner))
             .collect();
         for missing_owner in missing_owners {
-
-            if missing_owner == "last_lucky_hash" || missing_owner == "last_lucky_wbgl"{
-                continue
+            if missing_owner == "last_lucky_hash" || missing_owner == "last_lucky_wbgl" {
+                continue;
             }
             cache.remove(missing_owner);
         }
-
+        let current_block = get_current_block().await;
+        let lucky_block = get_winning_block(&mut connection).await;
+        if current_block > lucky_block {
+            let mut owners_map: Vec<(String, f64)> = vec![];
+            let owners_map_t: Vec<(Arc<String>, f64)> = cache.iter().collect();
+            for (k, v) in owners_map_t {
+                if *k == "last_lucky_hash" || *k == "last_lucky_wbgl" {
+                    continue;
+                }
+                let key = k.to_string();
+                owners_map.push((key, v));
+            }
+            let mut sum_wbgl = 0.;
+            for st in &owners_map {
+                sum_wbgl += st.1;
+            }
+            cache.insert("last_lucky_hash".to_string(), lucky_block as f64);
+            cache.insert("last_lucky_wbgl".to_string(), sum_wbgl as f64);
+            let filename = format!("{lucky_block}.json");
+            let file = match std::fs::File::create("../snapshots/".to_string() + &filename) {
+                Ok(x) => x,
+                Err(x) => {
+                    println!("createFileError: {:?}", x);
+                    continue;
+                }
+            };
+            let mut writer = BufWriter::new(file);
+            match serde_json::to_writer(&mut writer, &owners_map) {
+                Ok(x) => x,
+                Err(x) => {
+                    println!("SerdeToWritterError: {:?}", x);
+                    continue;
+                }
+            };
+            match writer.flush() {
+                Ok(x) => x,
+                Err(x) => {
+                    println!("FlushError: {:?}", x);
+                    continue;
+                }
+            };
+        }
         thread::sleep(Duration::from_millis(300000));
     }
 }

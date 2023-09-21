@@ -76,9 +76,9 @@ pub async fn get_last_winners(
     if current_block >= lucky_block {
         sum_wbgl = match cache.get("last_lucky_wbgl") {
             Some(x) => x,
-            None => 700.,
+            None => sum_wbgl,
         };
-    }
+    } 
     let (tickets, _colors) =
         utils::get_minted_tickets(sum_wbgl, lucky_block, &mut owners_map).await;
 
@@ -127,7 +127,7 @@ pub async fn get_lucky_hash(
     let current_block = utils::get_current_block().await;
     let lucky_block = utils::get_lucky_block(connection).await;
     if current_block >= lucky_block {
-        cache.insert("last_lucky_hash".to_string(), lucky_block as f64);
+        // cache.insert("last_lucky_hash".to_string(), lucky_block as f64);
         let lucky_hash = utils::get_block_hash(lucky_block).await;
         let href = format!("https://bgl.bitaps.com/{lucky_block}");
         let resp = structs::LastTradeResponse {
@@ -196,9 +196,9 @@ pub async fn get_tickets_count(
     if current_block >= lucky_block {
         sum_wbgl = match cache.get("last_lucky_wbgl") {
             Some(x) => x,
-            None => 700.,
+            None => sum_wbgl,
         };
-    }
+    } 
     let ticket_count = utils::get_ticket_count(sum_wbgl).await;
 
     HttpResponse::Ok()
@@ -232,9 +232,25 @@ pub async fn get_tickets(
     if current_block >= lucky_block {
         sum_wbgl = match cache.get("last_lucky_wbgl") {
             Some(x) => x,
-            None => 700.,
+            None => sum_wbgl,
         };
+        let file_name = format!("{lucky_block}.json");
+        let file_path = match std::fs::read_to_string("../snapshots/".to_string() + &file_name) {
+            Ok(x) => x,
+            Err(x) => {
+                println!("ReadToString Error: {:?}", x);
+                "".to_string()
+            }
+        };
+
+        let owners_map_t: Vec<(String, f64)> = serde_json::from_str(&file_path).unwrap();
+        let mut new_owners_map = vec![];
+        for (k, v) in owners_map_t {
+            new_owners_map.push((Arc::new(k), v));
+        }
+        owners_map = new_owners_map;
     }
+
     let (tickets, colors) = utils::get_minted_tickets(sum_wbgl, lucky_block, &mut owners_map).await;
 
     let resp = structs::TicketResponse {
@@ -337,9 +353,9 @@ pub async fn get_owners(
     if current_block >= lucky_block {
         sum_wbgl = match cache.get("last_lucky_wbgl") {
             Some(x) => x,
-            None => 700.,
+            None => sum_wbgl,
         };
-    }
+    } 
 
     let wbgl_points = utils::get_ticket_weight(sum_wbgl).await;
 
