@@ -17,7 +17,7 @@ use std::io::{BufWriter, Write};
 // use serde_json::json;
 use std::str::FromStr;
 use std::sync::Arc;
-use std::time::Duration;
+// use std::time::Duration;
 
 use opensea_api::models::InfoLottoPoint;
 use std::collections::HashMap;
@@ -27,7 +27,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::error::Error;
 use std::hash::{Hash, Hasher};
 use std::process::Command;
-use std::{env, thread};
+use std::env;
 use tokio::task;
 
 pub const MATICURL: &str = "https://polygon-rpc.com";
@@ -421,7 +421,7 @@ pub async fn get_owners_local(cache: Arc<Cache<String, f64>>) {
             }
             cache.insert("last_lucky_block".to_string(), lucky_block as f64);
             cache.insert("last_lucky_wbgl".to_string(), sum_wbgl as f64);
-            let mut dir = env::current_dir().unwrap();
+            let dir = env::current_dir().unwrap();
             // println!("{:?}", dir);
             let filename = format!("/{lucky_block}.json");
 

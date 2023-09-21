@@ -12,6 +12,7 @@ use moka::sync::Cache;
 use opensea_api::models::{InfoLottoPoint, NewToken, Token};
 use opensea_api::*;
 use std::collections::HashMap;
+use std::env;
 use std::str::FromStr;
 
 use std::sync::Arc;
@@ -239,9 +240,13 @@ pub async fn get_tickets(
             None => 0,
         };
         if last_lucky_block != 0 {
-            let file_name = format!("{last_lucky_block}.json");
-            let file_path = match std::fs::read_to_string("../snapshots/".to_string() + &file_name)
-            {
+            let dir = env::current_dir()
+                .unwrap()
+                .into_os_string()
+                .into_string()
+                .unwrap();
+            let file_name = dir + &format!("/snapshots/{last_lucky_block}.json");
+            let file_path = match std::fs::read_to_string(file_name) {
                 Ok(x) => x,
                 Err(x) => {
                     println!("ReadToString Error: {:?}", x);
