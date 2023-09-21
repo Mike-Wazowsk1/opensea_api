@@ -425,6 +425,7 @@ pub async fn get_owners_local(cache: Arc<Cache<String, f64>>) {
             // println!("{:?}", dir);
             dir = dir.join("/snapshots");
             let filename = format!("{lucky_block}.json");
+            println!("{:?}", dir);
             let file = match std::fs::File::create(dir.join(&filename)) {
                 Ok(x) => x,
                 Err(x) => {
