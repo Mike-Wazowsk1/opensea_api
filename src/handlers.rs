@@ -58,7 +58,7 @@ pub async fn get_last_winners(
 
     let mut owners_map: Vec<(Arc<String>, f64)> = vec![];
     for (k, v) in owners_map_t {
-        if *k == "last_lucky_hash" || *k == "last_lucky_wbgl" {
+        if *k == "last_lucky_block" || *k == "last_lucky_wbgl" || *k == "last_lucky_block" {
             continue;
         }
         owners_map.push((k, v));
@@ -78,7 +78,7 @@ pub async fn get_last_winners(
             Some(x) => x,
             None => sum_wbgl,
         };
-    } 
+    }
     let (tickets, _colors) =
         utils::get_minted_tickets(sum_wbgl, lucky_block, &mut owners_map).await;
 
@@ -127,7 +127,7 @@ pub async fn get_lucky_hash(
     let current_block = utils::get_current_block().await;
     let lucky_block = utils::get_lucky_block(connection).await;
     if current_block >= lucky_block {
-        // cache.insert("last_lucky_hash".to_string(), lucky_block as f64);
+        // cache.insert("last_lucky_block".to_string(), lucky_block as f64);
         let lucky_hash = utils::get_block_hash(lucky_block).await;
         let href = format!("https://bgl.bitaps.com/{lucky_block}");
         let resp = structs::LastTradeResponse {
@@ -139,7 +139,7 @@ pub async fn get_lucky_hash(
             .append_header(("Access-Control-Allow-Origin", "*"))
             .json(resp);
     }
-    let last_lucky_block = match cache.get("last_lucky_hash") {
+    let last_lucky_block = match cache.get("last_lucky_block") {
         Some(x) => x,
         None => 10e99,
     };
@@ -174,7 +174,7 @@ pub async fn get_tickets_count(
 
     let mut owners_map: Vec<(Arc<String>, f64)> = vec![];
     for (k, v) in owners_map_t {
-        if *k == "last_lucky_hash" || *k == "last_lucky_wbgl" {
+        if *k == "last_lucky_block" || *k == "last_lucky_wbgl" || *k == "last_lucky_block" {
             continue;
         }
         owners_map.push((k, v));
@@ -198,7 +198,7 @@ pub async fn get_tickets_count(
             Some(x) => x,
             None => sum_wbgl,
         };
-    } 
+    }
     let ticket_count = utils::get_ticket_count(sum_wbgl).await;
 
     HttpResponse::Ok()
@@ -215,7 +215,7 @@ pub async fn get_tickets(
 
     let mut owners_map: Vec<(Arc<String>, f64)> = vec![];
     for (k, v) in owners_map_t {
-        if *k == "last_lucky_hash" || *k == "last_lucky_wbgl" {
+        if *k == "last_lucky_block" || *k == "last_lucky_wbgl" || *k == "last_lucky_block" {
             continue;
         }
         owners_map.push((k, v));
@@ -234,21 +234,28 @@ pub async fn get_tickets(
             Some(x) => x,
             None => sum_wbgl,
         };
-        let file_name = format!("{lucky_block}.json");
-        let file_path = match std::fs::read_to_string("../snapshots/".to_string() + &file_name) {
-            Ok(x) => x,
-            Err(x) => {
-                println!("ReadToString Error: {:?}", x);
-                "".to_string()
-            }
+        let last_lucky_block = match cache.get("last_lucky_block") {
+            Some(x) => x as i64,
+            None => 0,
         };
+        if last_lucky_block != 0 {
+            let file_name = format!("{last_lucky_block}.json");
+            let file_path = match std::fs::read_to_string("../snapshots/".to_string() + &file_name)
+            {
+                Ok(x) => x,
+                Err(x) => {
+                    println!("ReadToString Error: {:?}", x);
+                    "".to_string()
+                }
+            };
 
-        let owners_map_t: Vec<(String, f64)> = serde_json::from_str(&file_path).unwrap();
-        let mut new_owners_map = vec![];
-        for (k, v) in owners_map_t {
-            new_owners_map.push((Arc::new(k), v));
+            let owners_map_t: Vec<(String, f64)> = serde_json::from_str(&file_path).unwrap();
+            let mut new_owners_map = vec![];
+            for (k, v) in owners_map_t {
+                new_owners_map.push((Arc::new(k), v));
+            }
+            owners_map = new_owners_map;
         }
-        owners_map = new_owners_map;
     }
 
     let (tickets, colors) = utils::get_minted_tickets(sum_wbgl, lucky_block, &mut owners_map).await;
@@ -329,7 +336,7 @@ pub async fn get_owners(
 
     let mut owners_map: Vec<(Arc<String>, f64)> = vec![];
     for (k, v) in owners_map_t {
-        if *k == "last_lucky_hash" || *k == "last_lucky_wbgl" {
+        if *k == "last_lucky_block" || *k == "last_lucky_wbgl" || *k == "last_lucky_block" {
             continue;
         }
         owners_map.push((k, v));
@@ -355,7 +362,7 @@ pub async fn get_owners(
             Some(x) => x,
             None => sum_wbgl,
         };
-    } 
+    }
 
     let wbgl_points = utils::get_ticket_weight(sum_wbgl).await;
 
@@ -494,7 +501,7 @@ pub async fn get_payment(
 
     let mut owners_map: Vec<(Arc<String>, f64)> = vec![];
     for (k, v) in owners_map_t {
-        if *k == "last_lucky_hash" || *k == "last_lucky_wbgl" {
+        if *k == "last_lucky_block" || *k == "last_lucky_wbgl" || *k == "last_lucky_block" {
             continue;
         }
         owners_map.push((k, v));

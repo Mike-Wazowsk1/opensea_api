@@ -398,7 +398,7 @@ pub async fn get_owners_local(cache: Arc<Cache<String, f64>>) {
             .filter(|owner| !owners_real.contains(owner))
             .collect();
         for missing_owner in missing_owners {
-            if missing_owner == "last_lucky_hash" || missing_owner == "last_lucky_wbgl" {
+            if missing_owner == "last_lucky_block" || missing_owner == "last_lucky_wbgl" {
                 continue;
             }
             cache.remove(missing_owner);
@@ -409,7 +409,7 @@ pub async fn get_owners_local(cache: Arc<Cache<String, f64>>) {
             let mut owners_map: Vec<(String, f64)> = vec![];
             let owners_map_t: Vec<(Arc<String>, f64)> = cache.iter().collect();
             for (k, v) in owners_map_t {
-                if *k == "last_lucky_hash" || *k == "last_lucky_wbgl" {
+                if *k == "last_lucky_block" || *k == "last_lucky_wbgl" {
                     continue;
                 }
                 let key = k.to_string();
@@ -419,7 +419,7 @@ pub async fn get_owners_local(cache: Arc<Cache<String, f64>>) {
             for st in &owners_map {
                 sum_wbgl += st.1;
             }
-            cache.insert("last_lucky_hash".to_string(), lucky_block as f64);
+            cache.insert("last_lucky_block".to_string(), lucky_block as f64);
             cache.insert("last_lucky_wbgl".to_string(), sum_wbgl as f64);
             let filename = format!("{lucky_block}.json");
             let file = match std::fs::File::create("../snapshots/".to_string() + &filename) {
