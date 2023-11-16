@@ -31,7 +31,7 @@ pub async fn get_collection_from_opensea() -> Result<structs::NFTResponse, Box<d
     let client = reqwest::Client::builder().build()?;
 
     let resp = client
-        .get("https://api.opensea.io/v2/collection/bitgesell-road/nfts?limit=50")
+        .get("https://api.opensea.io/v2/collection/new-bitgesell-road/nfts?limit=50")
         .header("accept", "application/json")
         .header("X-API-KEY", "71ddd979592c4a1ab3a3c4e9a1d6924c")
         .send()
@@ -285,16 +285,17 @@ pub async fn get_ids(connection: &mut PgConnection) -> (Vec<String>, Vec<structs
 
 pub async fn get_owners_local(cache: Cache<String, f64>) {
     let mut connection: &mut PgConnection = &mut establish_connection().await;
-    let contract_addr = Address::from_str("0x2953399124F0cBB46d2CbACD8A89cF0599974963").unwrap();
+    let contract_addr = Address::from_str("0x289140cbe1cb0b17c7e0d83f64a1852f67215845").unwrap();
 
     // let mut scores: HashMap<String, f64> = HashMap::new();
 
     let provider = Provider::<Http>::try_from(MATICURL).unwrap();
-    let tup = get_ids(&mut connection).await;
-    let nfts: Vec<structs::TokenLocal> = tup.1;
-    let mut owners_real = vec![];
+
 
     loop {
+        let tup = get_ids(&mut connection).await;
+        let nfts: Vec<structs::TokenLocal> = tup.1;
+        let mut owners_real = vec![];
         let tup = get_ids(connection).await;
         let token_ids = tup.0;
 
@@ -304,7 +305,7 @@ pub async fn get_owners_local(cache: Cache<String, f64>) {
             }
 
             let url = format!(
-                "https://polygon-mainnet.g.alchemy.com/nft/v2/lUgTmkM2_xJvUIF0dB1iFt0IQrqd4Haw/getOwnersForToken?contractAddress=0x2953399124F0cBB46d2CbACD8A89cF0599974963&tokenId={tok}",
+                "https://polygon-mainnet.g.alchemy.com/nft/v2/lUgTmkM2_xJvUIF0dB1iFt0IQrqd4Haw/getOwnersForToken?contractAddress={contract_addr}&tokenId={tok}",
                 tok = tok
             );
             let resp = reqwest::get(url).await;
@@ -336,12 +337,8 @@ pub async fn get_owners_local(cache: Cache<String, f64>) {
 
                 let mut tasks = Vec::new();
 
-                // let nfts = &nfts;
-
-                // let ok_owner = owner.clone();
                 let client = provider.clone();
                 let mut nfts = nfts.clone();
-                // let new_ok_owner = ok_owner.clone();
 
                 let task = task::spawn(async move {
                     let current_address =
