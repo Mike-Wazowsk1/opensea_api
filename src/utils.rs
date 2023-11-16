@@ -24,10 +24,10 @@ use std::collections::HashMap;
 
 use crate::structs;
 use std::collections::hash_map::DefaultHasher;
+use std::env;
 use std::error::Error;
 use std::hash::{Hash, Hasher};
 use std::process::Command;
-use std::env;
 use tokio::task;
 
 pub const MATICURL: &str = "https://polygon-rpc.com";
@@ -42,7 +42,7 @@ pub async fn get_collection_from_opensea() -> Result<structs::NFTResponse, Box<d
     let client = reqwest::Client::builder().build()?;
 
     let resp = client
-        .get("https://api.opensea.io/v2/collection/bitgesell-road/nfts?limit=50")
+        .get("https://api.opensea.io/v2/collection/new-bitgesell-road/nfts?limit=50")
         .header("accept", "application/json")
         .header("X-API-KEY", "71ddd979592c4a1ab3a3c4e9a1d6924c")
         .send()
@@ -303,16 +303,13 @@ pub async fn get_winning_block(connection: &mut PgConnection) -> u128 {
 
 pub async fn get_owners_local(cache: Arc<Cache<String, f64>>) {
     let mut connection: &mut PgConnection = &mut establish_connection().await;
-    let contract_addr = Address::from_str("0x2953399124F0cBB46d2CbACD8A89cF0599974963").unwrap();
-
-    // let mut scores: HashMap<String, f64> = HashMap::new();
-
+    let contract_addr = Address::from_str("0x289140cbe1cb0b17c7e0d83f64a1852f67215845").unwrap();
     let provider = Provider::<Http>::try_from(MATICURL).unwrap();
-    let tup = get_ids(&mut connection).await;
-    let nfts: Vec<structs::TokenLocal> = tup.1;
-    let mut owners_real = vec![];
 
     loop {
+        let tup = get_ids(&mut connection).await;
+        let nfts: Vec<structs::TokenLocal> = tup.1;
+        let mut owners_real = vec![];
         let tup = get_ids(connection).await;
         let token_ids = tup.0;
 
@@ -322,7 +319,7 @@ pub async fn get_owners_local(cache: Arc<Cache<String, f64>>) {
             }
 
             let url = format!(
-                "https://polygon-mainnet.g.alchemy.com/nft/v2/lUgTmkM2_xJvUIF0dB1iFt0IQrqd4Haw/getOwnersForToken?contractAddress=0x2953399124F0cBB46d2CbACD8A89cF0599974963&tokenId={tok}",
+                "https://polygon-mainnet.g.alchemy.com/nft/v2/lUgTmkM2_xJvUIF0dB1iFt0IQrqd4Haw/getOwnersForToken?contractAddress=0x289140cbe1cb0b17c7e0d83f64a1852f67215845&tokenId={tok}",
                 tok = tok
             );
             let resp = reqwest::get(url).await;
@@ -355,13 +352,8 @@ pub async fn get_owners_local(cache: Arc<Cache<String, f64>>) {
 
                 let mut tasks = Vec::new();
 
-                // let nfts = &nfts;
-
-                // let ok_owner = owner.clone();
                 let client = provider.clone();
                 let mut nfts = nfts.clone();
-                // let new_ok_owner = ok_owner.clone();
-
                 let task = task::spawn(async move {
                     let current_address =
                         get_nft_by_address_local(&mut nfts, &ok_owner, &client, &contract_addr)
@@ -370,7 +362,6 @@ pub async fn get_owners_local(cache: Arc<Cache<String, f64>>) {
                     (ok_owner, current_pts)
                 });
                 tasks.push(task);
-
                 for task in tasks {
                     let (tmp_owner, current_pts) = task.await.unwrap();
                     owners_real.push(tmp_owner.clone());
@@ -449,7 +440,6 @@ pub async fn get_owners_local(cache: Arc<Cache<String, f64>>) {
                     continue;
                 }
             };
-            println!("File {:?} saved", filename)
         }
         // thread::sleep(Duration::from_millis(300000));
     }
@@ -636,12 +626,7 @@ fn parse_digits(t_num: &str) -> Vec<i32> {
     t_num
 }
 
-// pub async fn is_locked(connection: &mut PgConnection) -> bool {
-//     let current_block = get_current_block().await;
-//     let value = info_lotto.load::<InfoLottoPoint>(connection).unwrap();
-//     let lucky_block = value[0].wining_block.clone().unwrap();
-//     current_block >= lucky_block as u128
-// }
+
 pub async fn get_win_tickets(h: String, l: i32) -> Vec<i32> {
     if l == 1000 {
         let h = parse_digits(&h);
