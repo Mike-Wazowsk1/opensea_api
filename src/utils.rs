@@ -514,6 +514,7 @@ pub async fn get_current_block() -> u128 {
         .arg("getblockcount")
         .output()
         .unwrap();
+    println!("{:?}", out);
     let str_block = String::from_utf8_lossy(&out.stdout);
     let mut s = str_block.to_string();
     s.pop();
@@ -625,7 +626,6 @@ fn parse_digits(t_num: &str) -> Vec<i32> {
     let t_num: Vec<i32> = group.iter().map(|&x| x as i32).collect();
     t_num
 }
-
 
 pub async fn get_win_tickets(h: String, l: i32) -> Vec<i32> {
     if l == 1000 {
