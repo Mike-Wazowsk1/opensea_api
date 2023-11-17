@@ -514,7 +514,6 @@ pub async fn get_current_block() -> u128 {
         .arg("getblockcount")
         .output()
         .unwrap();
-    println!("{:?}", out);
     let str_block = String::from_utf8_lossy(&out.stdout);
     let mut s = str_block.to_string();
     s.pop();
