@@ -304,7 +304,7 @@ pub async fn get_nft_by_address(
             .json(response);
     }
 
-    let contract_addr = Address::from_str("0x2953399124F0cBB46d2CbACD8A89cF0599974963").unwrap();
+    let contract_addr = Address::from_str("0xd8984180d6c47476242093983390c46762c7b1e4").unwrap();
 
     let _balance = utils::get_counts(&provider, &contract_addr, &address, &mut nfts).await;
 
