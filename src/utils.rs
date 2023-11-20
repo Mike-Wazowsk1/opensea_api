@@ -285,18 +285,18 @@ pub async fn get_ids(connection: &mut PgConnection) -> (Vec<String>, Vec<structs
 
 pub async fn get_owners_local(cache: Cache<String, f64>) {
     let mut connection: &mut PgConnection = &mut establish_connection().await;
-    let contract_addr = Address::from_str("0x289140cbe1cb0b17c7e0d83f64a1852f67215845").unwrap();
+    let tmp = "0xd8984180d6c47476242093983390c46762c7b1e4".to_string();
+
+    let contract_addr = Address::from_str(&tmp).unwrap();
 
     // let mut scores: HashMap<String, f64> = HashMap::new();
 
     let provider = Provider::<Http>::try_from(MATICURL).unwrap();
 
-
     loop {
+        let mut owners_real = vec![];
         let tup = get_ids(&mut connection).await;
         let nfts: Vec<structs::TokenLocal> = tup.1;
-        let mut owners_real = vec![];
-        let tup = get_ids(connection).await;
         let token_ids = tup.0;
 
         for tok in token_ids {
@@ -305,7 +305,7 @@ pub async fn get_owners_local(cache: Cache<String, f64>) {
             }
 
             let url = format!(
-                "https://polygon-mainnet.g.alchemy.com/nft/v2/lUgTmkM2_xJvUIF0dB1iFt0IQrqd4Haw/getOwnersForToken?contractAddress={contract_addr}&tokenId={tok}",
+                "https://polygon-mainnet.g.alchemy.com/nft/v2/lUgTmkM2_xJvUIF0dB1iFt0IQrqd4Haw/getOwnersForToken?contractAddress={tmp}&tokenId={tok}",
                 tok = tok
             );
             let resp = reqwest::get(url).await;
@@ -327,7 +327,6 @@ pub async fn get_owners_local(cache: Cache<String, f64>) {
                     page_key: Option::None,
                 },
             };
-
 
             for owner in tmp_owners.owners {
                 let ok_owner: String = match owner {
@@ -364,9 +363,7 @@ pub async fn get_owners_local(cache: Cache<String, f64>) {
                         }
                     };
                 }
-       
             }
-
         }
         let stored: Vec<(Arc<String>, f64)> = cache.iter().collect();
         let mut stored_owners: Vec<String> = vec![];
