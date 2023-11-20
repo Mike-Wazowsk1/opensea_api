@@ -286,11 +286,8 @@ pub async fn get_ids(connection: &mut PgConnection) -> (Vec<String>, Vec<structs
 pub async fn get_owners_local(cache: Cache<String, f64>) {
     let mut connection: &mut PgConnection = &mut establish_connection().await;
     let tmp = "0xd8984180d6c47476242093983390c46762c7b1e4".to_string();
-
+    let own = "0x289140cbe1cb0b17c7e0d83f64a1852f67215845".to_string();
     let contract_addr = Address::from_str(&tmp).unwrap();
-
-    // let mut scores: HashMap<String, f64> = HashMap::new();
-
     let provider = Provider::<Http>::try_from(MATICURL).unwrap();
 
     loop {
@@ -333,6 +330,9 @@ pub async fn get_owners_local(cache: Cache<String, f64>) {
                     Some(x) => x,
                     None => continue,
                 };
+                if ok_owner == own {
+                    continue;
+                }
 
                 let mut tasks = Vec::new();
 
