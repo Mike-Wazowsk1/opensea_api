@@ -12,7 +12,7 @@ ExecStart=$PWD/target/release/opensea_api
 Restart=always
 
 [Install]
-WantedBy=multi-user.target" >/etc/systemd/system/lotto.service"
+WantedBy=multi-user.target" >/etc/systemd/system/lotto.service
 echo "Service build and moved"
 systemctl enable lotto.service
 echo "Service enabled for start at boot"
