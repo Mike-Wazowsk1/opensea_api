@@ -303,7 +303,9 @@ pub async fn get_winning_block(connection: &mut PgConnection) -> u128 {
 
 pub async fn get_owners_local(cache: Arc<Cache<String, f64>>) {
     let mut connection: &mut PgConnection = &mut establish_connection().await;
-    let contract_addr = Address::from_str("0x289140cbe1cb0b17c7e0d83f64a1852f67215845").unwrap();
+    let tmp = "0xd8984180d6c47476242093983390c46762c7b1e4".to_string();
+    let own = "0x289140cbe1cb0b17c7e0d83f64a1852f67215845".to_string();
+    let contract_addr = Address::from_str(&tmp).unwrap();
     let provider = Provider::<Http>::try_from(MATICURL).unwrap();
 
     loop {
@@ -319,7 +321,7 @@ pub async fn get_owners_local(cache: Arc<Cache<String, f64>>) {
             }
 
             let url = format!(
-                "https://polygon-mainnet.g.alchemy.com/nft/v2/lUgTmkM2_xJvUIF0dB1iFt0IQrqd4Haw/getOwnersForToken?contractAddress=0x289140cbe1cb0b17c7e0d83f64a1852f67215845&tokenId={tok}",
+                "https://polygon-mainnet.g.alchemy.com/nft/v2/lUgTmkM2_xJvUIF0dB1iFt0IQrqd4Haw/getOwnersForToken?contractAddress={tmp}&tokenId={tok}",
                 tok = tok
             );
             let resp = reqwest::get(url).await;
@@ -349,6 +351,9 @@ pub async fn get_owners_local(cache: Arc<Cache<String, f64>>) {
                     Some(x) => x,
                     None => continue,
                 };
+                if ok_owner == own {
+                    continue;
+                }
 
                 let mut tasks = Vec::new();
 
