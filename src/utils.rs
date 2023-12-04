@@ -20,6 +20,8 @@ use std::{env, thread};
 use tokio::task;
 
 pub const MATICURL: &str = "https://polygon-rpc.com";
+pub const CONTRACT_ADDRESS: &str = "0xd74d5fe12ebc67075d18a74e2da9a06334c7335e";
+pub const OWNER_ADDRESS: &str = "0x4C1C5403E419D736F267bBAc8911454bd0bA9043";
 
 abigen!(
     NftContract,
@@ -285,8 +287,8 @@ pub async fn get_ids(connection: &mut PgConnection) -> (Vec<String>, Vec<structs
 
 pub async fn get_owners_local(cache: Cache<String, f64>) {
     let mut connection: &mut PgConnection = &mut establish_connection().await;
-    let tmp = "0xd8984180d6c47476242093983390c46762c7b1e4".to_string();
-    let own = "0x289140cbe1cb0b17c7e0d83f64a1852f67215845".to_string();
+    let tmp = CONTRACT_ADDRESS.clone().to_string();
+    let own = OWNER_ADDRESS.clone().to_string();
     let contract_addr = Address::from_str(&tmp).unwrap();
     let provider = Provider::<Http>::try_from(MATICURL).unwrap();
 

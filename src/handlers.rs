@@ -277,8 +277,8 @@ pub async fn get_nft_by_address(
     let provider: Provider<Http> = Provider::<Http>::try_from(utils::MATICURL).unwrap();
     let mut nfts: Vec<structs::TokenLocal> = utils::make_nft_array(&mut connection).await;
 
-    let tmp_a = &address.clone();
-    if tmp_a == "0x289140cbe1cb0b17c7e0d83f64a1852f67215845" {
+    let tmp_a = address.clone();
+    if tmp_a == utils::OWNER_ADDRESS.clone().to_string() {
         let mut res: Vec<structs::TokenLocalTmp> = Vec::new();
         for token_local in &nfts {
             // Create structs::TokenLocalTmp with the calculated value of is_full
@@ -304,7 +304,7 @@ pub async fn get_nft_by_address(
             .json(response);
     }
 
-    let contract_addr = Address::from_str("0xd8984180d6c47476242093983390c46762c7b1e4").unwrap();
+    let contract_addr = Address::from_str(utils::CONTRACT_ADDRESS.clone()).unwrap();
 
     let _balance = utils::get_counts(&provider, &contract_addr, &address, &mut nfts).await;
 
