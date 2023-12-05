@@ -32,7 +32,7 @@ use tokio::task;
 
 pub const MATICURL: &str = "https://polygon-rpc.com";
 pub const CONTRACT_ADDRESS: &str = "0xd74d5fe12ebc67075d18a74e2da9a06334c7335e";
-pub const OWNER_ADDRESS: &str = "0x4C1C5403E419D736F267bBAc8911454bd0bA9043";
+pub const OWNER_ADDRESS: &str = "0x4c1c5403e419d736f267bbac8911454bd0ba9043";
 abigen!(
     NftContract,
     "abi.json",
