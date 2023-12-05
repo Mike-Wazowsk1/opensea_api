@@ -229,10 +229,10 @@ pub async fn get_tickets(
     let current_block = utils::get_current_block().await;
     let lucky_block = utils::get_lucky_block(connection).await;
     if current_block >= lucky_block {
-        sum_wbgl = match cache.get("last_lucky_wbgl") {
-            Some(x) => x,
-            None => sum_wbgl,
-        };
+        // sum_wbgl = match cache.get("last_lucky_wbgl") {
+        //     Some(x) => x,
+        //     None => sum_wbgl,
+        // };
         let last_lucky_block = match cache.get("last_lucky_block") {
             Some(x) => x as i64,
             None => 0,
@@ -340,11 +340,20 @@ pub async fn get_owners(
     //         scores.insert(ok_owner, current_pts);
     //     }
     // }
+
+    let owners_map_t: Vec<(Arc<String>, f64)> = cache.iter().collect();
+
+    for (k, v) in owners_map_t {
+        if *k == "last_lucky_block" || *k == "last_lucky_wbgl" || *k == "last_lucky_block" {
+            continue;
+        }
+        owners_map.push((k, v));
+    }
     if current_block >= lucky_block {
-        sum_wbgl = match cache.get("last_lucky_wbgl") {
-            Some(x) => x,
-            None => sum_wbgl,
-        };
+        // sum_wbgl = match cache.get("last_lucky_wbgl") {
+        //     Some(x) => x,
+        //     None => sum_wbgl,
+        // };
         let last_lucky_block = match cache.get("last_lucky_block") {
             Some(x) => x as i64,
             None => 0,
@@ -373,15 +382,6 @@ pub async fn get_owners(
         }
     }
 
-    let owners_map_t: Vec<(Arc<String>, f64)> = cache.iter().collect();
-
-    for (k, v) in owners_map_t {
-        if *k == "last_lucky_block" || *k == "last_lucky_wbgl" || *k == "last_lucky_block" {
-            continue;
-        }
-        owners_map.push((k, v));
-    }
-
     owners_map.sort_by(|a, b| {
         let score_comparison = b.1.partial_cmp(&a.1).unwrap();
         if score_comparison == std::cmp::Ordering::Equal {
@@ -390,16 +390,18 @@ pub async fn get_owners(
             score_comparison
         }
     });
+    // let mut sum_wbgl = 0.;
+
     for st in &owners_map {
         sum_wbgl += st.1;
     }
 
-    if current_block >= lucky_block {
-        sum_wbgl = match cache.get("last_lucky_wbgl") {
-            Some(x) => x,
-            None => sum_wbgl,
-        };
-    }
+    // if current_block >= lucky_block {
+    //     sum_wbgl = match cache.get("last_lucky_wbgl") {
+    //         Some(x) => x,
+    //         None => sum_wbgl,
+    //     };
+    // }
 
     let wbgl_points = utils::get_ticket_weight(sum_wbgl).await;
 
