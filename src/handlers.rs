@@ -225,9 +225,7 @@ pub async fn get_tickets(
     let connection: r2d2::PooledConnection<ConnectionManager<PgConnection>> = pool.get().unwrap();
 
     let mut sum_wbgl = 0.;
-    for st in &owners_map {
-        sum_wbgl += st.1;
-    }
+
     let current_block = utils::get_current_block().await;
     let lucky_block = utils::get_lucky_block(connection).await;
     if current_block >= lucky_block {
@@ -261,6 +259,9 @@ pub async fn get_tickets(
             }
             owners_map = new_owners_map;
         }
+    }
+    for st in &owners_map {
+        sum_wbgl += st.1;
     }
 
     let (tickets, colors) = utils::get_minted_tickets(sum_wbgl, lucky_block, &mut owners_map).await;
