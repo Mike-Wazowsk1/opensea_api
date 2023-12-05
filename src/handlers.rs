@@ -68,17 +68,44 @@ pub async fn get_last_winners(
 
     let mut res = Vec::new();
 
-    let mut sum_wbgl = 0.;
-    for st in &owners_map {
-        sum_wbgl += st.1;
-    }
+
     let current_block = utils::get_current_block().await;
     let lucky_block = utils::get_lucky_block(connection).await;
     if current_block >= lucky_block {
-        sum_wbgl = match cache.get("last_lucky_wbgl") {
-            Some(x) => x,
-            None => sum_wbgl,
+        // sum_wbgl = match cache.get("last_lucky_wbgl") {
+        //     Some(x) => x,
+        //     None => sum_wbgl,
+        // };
+        let last_lucky_block = match cache.get("last_lucky_block") {
+            Some(x) => x as i64,
+            None => 0,
         };
+        if last_lucky_block != 0 {
+            let dir = env::current_dir()
+                .unwrap()
+                .into_os_string()
+                .into_string()
+                .unwrap();
+            let file_name = dir + &format!("/snapshots/{last_lucky_block}.json");
+            let file_path = match std::fs::read_to_string(file_name) {
+                Ok(x) => x,
+                Err(x) => {
+                    println!("ReadToString Error: {:?}", x);
+                    "".to_string()
+                }
+            };
+
+            let owners_map_t: Vec<(String, f64)> = serde_json::from_str(&file_path).unwrap();
+            let mut new_owners_map = vec![];
+            for (k, v) in owners_map_t {
+                new_owners_map.push((Arc::new(k), v));
+            }
+            owners_map = new_owners_map;
+        }
+    }
+    let mut sum_wbgl = 0.;
+    for st in &owners_map {
+        sum_wbgl += st.1;
     }
     let (tickets, _colors) =
         utils::get_minted_tickets(sum_wbgl, lucky_block, &mut owners_map).await;
