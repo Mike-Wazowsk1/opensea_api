@@ -18,6 +18,8 @@ use std::path::Path;
 // use serde_json::json;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::time::Duration;
+use std::thread;
 // use std::time::Duration;
 
 use opensea_api::models::InfoLottoPoint;
