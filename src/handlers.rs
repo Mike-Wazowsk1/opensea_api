@@ -282,16 +282,19 @@ pub async fn get_owners(
     pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,
 ) -> impl Responder {
     let connection: r2d2::PooledConnection<ConnectionManager<PgConnection>> = pool.get().unwrap();
+    let current_block = utils::get_current_block().await;
+    let lucky_block = utils::get_lucky_block(connection).await;
+    let mut sum_wbgl = 0.;
+    let mut owners_map: Vec<(Arc<String>, f64)> = vec![];
+    let mut limit = 0;
+    let mut page = 0;
+    let mut search = "".to_string();
 
     let q: String = req.query_string().replace("&", " ").replace("=", " ");
     let query: Vec<&str> = q.split(" ").collect();
     // let connection = pool.get().unwrap();
 
     // let contract_addr = Address::from_str("0x2953399124F0cBB46d2CbACD8A89cF0599974963").unwrap();
-
-    let mut limit = 0;
-    let mut page = 0;
-    let mut search = "".to_string();
 
     for i in 0..query.len() {
         if query[i] == "limit" {
@@ -336,10 +339,41 @@ pub async fn get_owners(
     //         scores.insert(ok_owner, current_pts);
     //     }
     // }
+    if current_block >= lucky_block {
+        sum_wbgl = match cache.get("last_lucky_wbgl") {
+            Some(x) => x,
+            None => sum_wbgl,
+        };
+        let last_lucky_block = match cache.get("last_lucky_block") {
+            Some(x) => x as i64,
+            None => 0,
+        };
+        if last_lucky_block != 0 {
+            let dir = env::current_dir()
+                .unwrap()
+                .into_os_string()
+                .into_string()
+                .unwrap();
+            let file_name = dir + &format!("/snapshots/{last_lucky_block}.json");
+            let file_path = match std::fs::read_to_string(file_name) {
+                Ok(x) => x,
+                Err(x) => {
+                    println!("ReadToString Error: {:?}", x);
+                    "".to_string()
+                }
+            };
+
+            let owners_map_t: Vec<(String, f64)> = serde_json::from_str(&file_path).unwrap();
+            let mut new_owners_map = vec![];
+            for (k, v) in owners_map_t {
+                new_owners_map.push((Arc::new(k), v));
+            }
+            owners_map = new_owners_map;
+        }
+    }
 
     let owners_map_t: Vec<(Arc<String>, f64)> = cache.iter().collect();
 
-    let mut owners_map: Vec<(Arc<String>, f64)> = vec![];
     for (k, v) in owners_map_t {
         if *k == "last_lucky_block" || *k == "last_lucky_wbgl" || *k == "last_lucky_block" {
             continue;
@@ -355,13 +389,10 @@ pub async fn get_owners(
             score_comparison
         }
     });
-    let mut sum_wbgl = 0.;
     for st in &owners_map {
         sum_wbgl += st.1;
     }
 
-    let current_block = utils::get_current_block().await;
-    let lucky_block = utils::get_lucky_block(connection).await;
     if current_block >= lucky_block {
         sum_wbgl = match cache.get("last_lucky_wbgl") {
             Some(x) => x,
