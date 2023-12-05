@@ -424,6 +424,8 @@ pub async fn get_owners_local(cache: Arc<Cache<String, f64>>) {
 
             let dir = dir.into_os_string().into_string().unwrap() + "/snapshots" + &filename;
             println!("{:?}", dir);
+            println!("{:?}", Path::new(dir).exists());
+
             let file = match std::fs::File::create(dir) {
                 Ok(x) => x,
                 Err(x) => {
