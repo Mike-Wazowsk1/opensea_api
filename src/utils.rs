@@ -450,7 +450,7 @@ pub async fn get_owners_local(cache: Arc<Cache<String, f64>>) {
                 };
             }
         }
-        // thread::sleep(Duration::from_millis(300000));
+        thread::sleep(Duration::from_millis(30000));
     }
 }
 
