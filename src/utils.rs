@@ -112,7 +112,13 @@ pub async fn establish_connection() -> PgConnection {
 
 pub async fn make_nft_array(connection: &mut PgConnection) -> Vec<structs::TokenLocal> {
     let mut result: Vec<structs::TokenLocal> = vec![];
-    let mut db: Vec<Token> = tokens.load(connection).expect("Need data");
+    let mut db: Vec<Token> = match tokens.load(connection) {
+        Ok(x) => x,
+        Err(err) => {
+            println!("Get tokens info error: {:?}", err);
+            return result;
+        }
+    };
     db.sort_by(|a, b| a.index.partial_cmp(&b.index).unwrap());
     for l in db {
         let tmp = structs::TokenLocal {
@@ -287,7 +293,6 @@ pub async fn get_nft_by_address_local(
 
 pub async fn get_ids(connection: &mut PgConnection) -> (Vec<String>, Vec<structs::TokenLocal>) {
     let mut token_ids = Vec::new();
-    // let connection = &mut establish_connection().await;
     let nfts: Vec<structs::TokenLocal> = make_nft_array(connection).await;
 
     for n in &nfts {
@@ -312,10 +317,9 @@ pub async fn get_owners_local(cache: Arc<Cache<String, f64>>) {
     let provider = Provider::<Http>::try_from(MATICURL).unwrap();
 
     loop {
+        let mut owners_real = vec![];
         let tup = get_ids(&mut connection).await;
         let nfts: Vec<structs::TokenLocal> = tup.1;
-        let mut owners_real = vec![];
-        let tup = get_ids(connection).await;
         let token_ids = tup.0;
 
         for tok in token_ids {
