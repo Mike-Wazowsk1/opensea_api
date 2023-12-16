@@ -6,22 +6,26 @@ use moka::sync::Cache;
 mod handlers;
 mod structs;
 mod utils;
+mod models;
+mod schema;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv::dotenv().ok();
     let cache: Cache<String, f64> = Cache::new(10_000);
     let clonned_cache = cache.clone();
-    tokio::spawn(async move {
-        utils::get_owners_local(clonned_cache).await;
-    });
-
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL");
     let manager = ConnectionManager::<PgConnection>::new(database_url);
     let pool: r2d2::Pool<ConnectionManager<PgConnection>> = r2d2::Pool::builder()
         .test_on_check_out(true)
         .build(manager)
         .expect("Could not build connection pool");
+    let cloned_pool = pool.clone();
+    tokio::spawn(async move {
+        utils::get_owners_local(clonned_cache,cloned_pool).await;
+    });
+
+
 
     HttpServer::new(move || {
         App::new()

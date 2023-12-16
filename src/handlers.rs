@@ -1,20 +1,17 @@
-use self::schema::info::dsl::*;
-use self::schema::tokens::dsl::*;
-
+use crate::schema::info::dsl::*;
+use crate::schema::tokens::dsl::*;
 use actix_web::{get, web, HttpRequest, HttpResponse, Responder};
+use diesel::{SelectableHelper, RunQueryDsl};
 use diesel::associations::HasTable;
 use diesel::pg::PgConnection;
-use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
 use ethers::prelude::*;
 use ethers::providers::{Http, Provider};
 use moka::sync::Cache;
-use opensea_api::models::{InfoPoint, NewToken, Token};
-use opensea_api::*;
+use crate::models::{InfoPoint, NewToken, Token};
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
-
 use crate::structs;
 use crate::utils;
 
@@ -37,9 +34,6 @@ pub async fn get_owners(
     let q: String = req.query_string().replace("&", " ").replace("=", " ");
     let query: Vec<&str> = q.split(" ").collect();
     let mut connection = pool.get().unwrap();
-
-    // let contract_addr = Address::from_str("0x2953399124F0cBB46d2CbACD8A89cF0599974963").unwrap();
-
     let mut limit = 0;
     let mut page = 0;
     let mut search = "".to_string();
@@ -55,38 +49,6 @@ pub async fn get_owners(
             search = query[i + 1].to_lowercase()
         }
     }
-    // let mut scores: HashMap<String, f64> = HashMap::new();
-
-    // unsafe {
-    //     let mut tasks = Vec::new();
-    //     let provider = Provider::<Http>::try_from(MATICURL).unwrap();
-
-    //     // let nfts = &nfts;
-    //     let tup = get_ids(&mut connection).await;
-    //     let nfts: Vec<structs::TokenLocal> = tup.1;
-
-    // for owner in GLOBAL_OWNERS.iter() {
-    //     let ok_owner = owner.clone();
-    //     if !scores.contains_key(&ok_owner) {
-    //         let client = provider.clone();
-    //         let mut nfts = nfts.clone();
-
-    //         let task = task::spawn(async move {
-    //             let current_address =
-    //                 get_nft_by_address_local(&mut nfts, &ok_owner, &client, &contract_addr)
-    //                     .await;
-    //             let current_pts = current_address;
-    //             (ok_owner, current_pts)
-    //         });
-    //         tasks.push(task);
-    //     }
-    // }
-
-    //     for task in tasks {
-    //         let (ok_owner, current_pts) = task.await.unwrap();
-    //         scores.insert(ok_owner, current_pts);
-    //     }
-    // }
 
     let mut sorted_scores: Vec<(Arc<String>, f64)> = cache.iter().collect();
 
@@ -139,7 +101,6 @@ pub async fn get_owners(
     if limit == 0 {
         limit = sorted_scores.len() as i32;
     }
-    // let connection: &mut PgConnection = &mut establish_connection().await;
     for i in cur_index as usize..sorted_scores.len() {
         let reward = (wbgl_point * sorted_scores[i].1) / s;
         final_result.push(structs::Fun2Response {
@@ -202,40 +163,6 @@ pub async fn get_payment(
     cache: web::Data<Cache<String, f64>>,
 ) -> impl Responder {
     let mut connection = pool.get().unwrap();
-
-    // let contract_addr = Address::from_str("0x2953399124F0cBB46d2CbACD8A89cF0599974963").unwrap();
-
-    // let mut scores: HashMap<String, f64> = HashMap::new();
-
-    // let provider = Provider::<Http>::try_from(utils::MATICURL).unwrap();
-    // let tup = utils::get_ids(&mut connection).await;
-    // let nfts: Vec<structs::TokenLocal> = tup.1;
-    // unsafe {
-    //     let mut tasks = Vec::new();
-
-    //     for owner in GLOBAL_OWNERS.iter() {
-    //         let ok_owner = owner.clone();
-    //         if !scores.contains_key(&ok_owner) {
-    //             let client = provider.clone();
-    //             let mut nfts = nfts.clone();
-
-    //             let task = task::spawn(async move {
-    //                 let current_address =
-    //                     utils::get_nft_by_address_local(&mut nfts, &ok_owner, &client, &contract_addr)
-    //                         .await;
-    //                 let current_pts = current_address;
-    //                 (ok_owner, current_pts)
-    //             });
-    //             tasks.push(task);
-    //         }
-    //     }
-
-    //     for task in tasks {
-    //         let (ok_owner, current_pts) = task.await.unwrap();
-    //         scores.insert(ok_owner, current_pts);
-    //     }
-    // }
-
     let mut sorted_scores: Vec<(Arc<String>, f64)> = cache.iter().collect();
     let wgbl_score = utils::wbgl(&mut connection).await;
 
@@ -271,7 +198,6 @@ pub async fn get_nft_by_address(
     address: web::Path<String>,
     pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,
 ) -> impl Responder {
-    // let connection = &mut establish_connection().await;
     let mut connection = pool.get().unwrap();
 
     let provider: Provider<Http> = Provider::<Http>::try_from(utils::MATICURL).unwrap();
@@ -281,7 +207,6 @@ pub async fn get_nft_by_address(
     if tmp_a == utils::OWNER_ADDRESS.clone().to_string() {
         let mut res: Vec<structs::TokenLocalTmp> = Vec::new();
         for token_local in &nfts {
-            // Create structs::TokenLocalTmp with the calculated value of is_full
             let token_local_tmp = structs::TokenLocalTmp {
                 index: token_local.index,
                 count: token_local.count,
@@ -319,7 +244,6 @@ pub async fn get_nft_by_address(
             .filter(|&t| t.bracket == bracket_tmp)
             .all(|t| t.count > 0);
 
-        // Create structs::TokenLocalTmp with the calculated value of is_full
         let token_local_tmp = structs::TokenLocalTmp {
             index: token_local.index,
             count: token_local.count,
@@ -349,9 +273,6 @@ pub async fn get_wbgl(
     pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,
 ) -> impl Responder {
     let mut conn = pool.get().unwrap();
-    // let connection: &mut PgConnection = &mut establish_connection().await;
-
-    // let wbgl
 
     HttpResponse::Ok()
         .append_header(("Access-Control-Allow-Origin", "*"))
