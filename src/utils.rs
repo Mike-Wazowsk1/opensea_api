@@ -1,6 +1,7 @@
-use self::schema::tokens::dsl::*;
+use crate::schema::tokens::dsl::*;
 
-use self::schema::info_lotto::dsl::*;
+use crate::models::Token;
+use crate::schema::info_lotto::dsl::*;
 use actix_web::web;
 use diesel::pg::PgConnection;
 use diesel::r2d2::ConnectionManager;
@@ -10,19 +11,18 @@ use ethers::prelude::rand::seq::SliceRandom;
 use ethers::prelude::*;
 use ethers::providers::{Http, Provider};
 use moka::sync::Cache;
-use opensea_api::models::Token;
-use opensea_api::*;
+// use crate::*;
 use std::io::{BufWriter, Write};
 use std::path::Path;
 // use random_color::RandomColor;
 // use serde_json::json;
 use std::str::FromStr;
 use std::sync::Arc;
-use std::time::Duration;
 use std::thread;
+use std::time::Duration;
 // use std::time::Duration;
 
-use opensea_api::models::InfoLottoPoint;
+use crate::models::InfoLottoPoint;
 use std::collections::HashMap;
 
 use crate::structs;
@@ -135,7 +135,6 @@ pub async fn get_counts(
 ) -> Vec<U256> {
     let contract: NftContract<&Provider<Http>> =
         NftContract::new(contract_addr.clone(), Arc::new(&client));
-
     let mut ids: Vec<U256> = vec![];
     let mut addresses: Vec<Address> = vec![];
 
@@ -405,28 +404,28 @@ pub async fn get_owners_local(cache: Arc<Cache<String, f64>>) {
         }
         let current_block = get_current_block().await;
         let lucky_block = get_winning_block(&mut connection).await;
+        let mut owners_map: Vec<(String, f64)> = vec![];
+        let owners_map_t: Vec<(Arc<String>, f64)> = cache.iter().collect();
+        for (k, v) in owners_map_t {
+            if *k == "last_lucky_block" || *k == "last_lucky_wbgl" {
+                continue;
+            }
+            let key = k.to_string();
+            owners_map.push((key, v));
+        }
+        let mut sum_wbgl = 0.;
+        for st in &owners_map {
+            sum_wbgl += st.1;
+        }
+        println!("{:?}", owners_map);
         if current_block > lucky_block {
-            let mut owners_map: Vec<(String, f64)> = vec![];
-            let owners_map_t: Vec<(Arc<String>, f64)> = cache.iter().collect();
-            for (k, v) in owners_map_t {
-                if *k == "last_lucky_block" || *k == "last_lucky_wbgl" {
-                    continue;
-                }
-                let key = k.to_string();
-                owners_map.push((key, v));
-            }
-            let mut sum_wbgl = 0.;
-            for st in &owners_map {
-                sum_wbgl += st.1;
-            }
             cache.insert("last_lucky_block".to_string(), lucky_block as f64);
             cache.insert("last_lucky_wbgl".to_string(), sum_wbgl as f64);
             let dir = env::current_dir().unwrap();
-            // println!("{:?}", dir);
             let filename = format!("/{lucky_block}.json");
 
             let dir = dir.into_os_string().into_string().unwrap() + "/snapshots" + &filename;
-            println!("{:?}", dir);
+            // println!("{:?}", dir);
             if !Path::new(&dir).exists() {
                 let file = match std::fs::File::create(dir) {
                     Ok(x) => x,
@@ -521,14 +520,18 @@ pub async fn generate_sequence(data: f64, current_block: u128, size: i32) -> Vec
 }
 
 pub async fn get_current_block() -> u128 {
-    let out = Command::new("BGL-cli")
-        .arg("getblockcount")
-        .output()
-        .unwrap();
+    let out = match Command::new("BGL-cli").arg("getblockcount").output() {
+        Ok(x) => x,
+        Err(_) => return 0 as u128,
+    };
+
     let str_block = String::from_utf8_lossy(&out.stdout);
     let mut s = str_block.to_string();
     s.pop();
-    let block: u128 = s.parse().unwrap();
+    let block: u128 = match s.parse() {
+        Ok(x) => x,
+        Err(_) => return 0 as u128,
+    };
     block
 }
 pub async fn get_block_hash(block: u128) -> String {

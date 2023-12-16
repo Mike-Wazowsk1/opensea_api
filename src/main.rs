@@ -8,6 +8,10 @@ use moka::sync::Cache;
 mod handlers;
 mod structs;
 mod utils;
+mod models;
+mod schema;
+// mod lib;
+// 
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {

@@ -1,6 +1,7 @@
-use self::schema::info_lotto::dsl::*;
-use self::schema::tokens::dsl::*;
+use crate::schema::info_lotto::dsl::*;
+use crate::schema::tokens::dsl::*;
 
+use crate::models::{InfoLottoPoint, NewToken, Token};
 use actix_web::{get, web, HttpRequest, HttpResponse, Responder};
 use diesel::associations::HasTable;
 use diesel::pg::PgConnection;
@@ -9,8 +10,6 @@ use diesel::r2d2::{self, ConnectionManager};
 use ethers::prelude::*;
 use ethers::providers::{Http, Provider};
 use moka::sync::Cache;
-use opensea_api::models::{InfoLottoPoint, NewToken, Token};
-use opensea_api::*;
 use std::collections::HashMap;
 use std::env;
 use std::str::FromStr;
@@ -68,14 +67,9 @@ pub async fn get_last_winners(
 
     let mut res = Vec::new();
 
-
     let current_block = utils::get_current_block().await;
     let lucky_block = utils::get_lucky_block(connection).await;
     if current_block >= lucky_block {
-        // sum_wbgl = match cache.get("last_lucky_wbgl") {
-        //     Some(x) => x,
-        //     None => sum_wbgl,
-        // };
         let last_lucky_block = match cache.get("last_lucky_block") {
             Some(x) => x as i64,
             None => 0,
@@ -256,10 +250,6 @@ pub async fn get_tickets(
     let current_block = utils::get_current_block().await;
     let lucky_block = utils::get_lucky_block(connection).await;
     if current_block >= lucky_block {
-        // sum_wbgl = match cache.get("last_lucky_wbgl") {
-        //     Some(x) => x,
-        //     None => sum_wbgl,
-        // };
         let last_lucky_block = match cache.get("last_lucky_block") {
             Some(x) => x as i64,
             None => 0,
@@ -320,10 +310,6 @@ pub async fn get_owners(
 
     let q: String = req.query_string().replace("&", " ").replace("=", " ");
     let query: Vec<&str> = q.split(" ").collect();
-    // let connection = pool.get().unwrap();
-
-    // let contract_addr = Address::from_str("0x2953399124F0cBB46d2CbACD8A89cF0599974963").unwrap();
-
     for i in 0..query.len() {
         if query[i] == "limit" {
             limit = i32::from_str_radix(query[i + 1], 10).unwrap()
@@ -335,38 +321,6 @@ pub async fn get_owners(
             search = query[i + 1].to_lowercase()
         }
     }
-    // let mut scores: HashMap<String, f64> = HashMap::new();
-
-    // unsafe {
-    //     let mut tasks = Vec::new();
-    //     let provider = Provider::<Http>::try_from(MATICURL).unwrap();
-
-    //     // let nfts = &nfts;
-    //     let tup = get_ids(&mut connection).await;
-    //     let nfts: Vec<structs::TokenLocal> = tup.1;
-
-    // for owner in GLOBAL_OWNERS.iter() {
-    //     let ok_owner = owner.clone();
-    //     if !scores.contains_key(&ok_owner) {
-    //         let client = provider.clone();
-    //         let mut nfts = nfts.clone();
-
-    //         let task = task::spawn(async move {
-    //             let current_address =
-    //                 get_nft_by_address_local(&mut nfts, &ok_owner, &client, &contract_addr)
-    //                     .await;
-    //             let current_pts = current_address;
-    //             (ok_owner, current_pts)
-    //         });
-    //         tasks.push(task);
-    //     }
-    // }
-
-    //     for task in tasks {
-    //         let (ok_owner, current_pts) = task.await.unwrap();
-    //         scores.insert(ok_owner, current_pts);
-    //     }
-    // }
 
     let owners_map_t: Vec<(Arc<String>, f64)> = cache.iter().collect();
 
@@ -377,10 +331,6 @@ pub async fn get_owners(
         owners_map.push((k, v));
     }
     if current_block >= lucky_block {
-        // sum_wbgl = match cache.get("last_lucky_wbgl") {
-        //     Some(x) => x,
-        //     None => sum_wbgl,
-        // };
         let last_lucky_block = match cache.get("last_lucky_block") {
             Some(x) => x as i64,
             None => 0,
@@ -417,18 +367,10 @@ pub async fn get_owners(
             score_comparison
         }
     });
-    // let mut sum_wbgl = 0.;
 
     for st in &owners_map {
         sum_wbgl += st.1;
     }
-
-    // if current_block >= lucky_block {
-    //     sum_wbgl = match cache.get("last_lucky_wbgl") {
-    //         Some(x) => x,
-    //         None => sum_wbgl,
-    //     };
-    // }
 
     let wbgl_points = utils::get_ticket_weight(sum_wbgl).await;
 
@@ -466,7 +408,6 @@ pub async fn get_owners(
     if limit == 0 {
         limit = owners_map.len() as i32;
     }
-    // let connection: &mut PgConnection = &mut establish_connection().await;
     for i in cur_index as usize..owners_map.len() {
         let reward = wbgl_points * owners_map[i].1;
         final_result.push(structs::Fun2Response {
@@ -529,40 +470,6 @@ pub async fn get_payment(
     cache: web::Data<Cache<String, f64>>,
 ) -> impl Responder {
     let mut connection = pool.get().unwrap();
-
-    // let contract_addr = Address::from_str("0x2953399124F0cBB46d2CbACD8A89cF0599974963").unwrap();
-
-    // let mut scores: HashMap<String, f64> = HashMap::new();
-
-    // let provider = Provider::<Http>::try_from(utils::MATICURL).unwrap();
-    // let tup = utils::get_ids(&mut connection).await;
-    // let nfts: Vec<structs::TokenLocal> = tup.1;
-    // unsafe {
-    //     let mut tasks = Vec::new();
-
-    //     for owner in GLOBAL_OWNERS.iter() {
-    //         let ok_owner = owner.clone();
-    //         if !scores.contains_key(&ok_owner) {
-    //             let client = provider.clone();
-    //             let mut nfts = nfts.clone();
-
-    //             let task = task::spawn(async move {
-    //                 let current_address =
-    //                     utils::get_nft_by_address_local(&mut nfts, &ok_owner, &client, &contract_addr)
-    //                         .await;
-    //                 let current_pts = current_address;
-    //                 (ok_owner, current_pts)
-    //             });
-    //             tasks.push(task);
-    //         }
-    //     }
-
-    //     for task in tasks {
-    //         let (ok_owner, current_pts) = task.await.unwrap();
-    //         scores.insert(ok_owner, current_pts);
-    //     }
-    // }
-
     let owners_map_t: Vec<(Arc<String>, f64)> = cache.iter().collect();
 
     let mut owners_map: Vec<(Arc<String>, f64)> = vec![];
@@ -606,7 +513,6 @@ pub async fn get_nft_by_address(
     address: web::Path<String>,
     pool: web::Data<r2d2::Pool<ConnectionManager<PgConnection>>>,
 ) -> impl Responder {
-    // let connection = &mut establish_connection().await;
     let mut connection = pool.get().unwrap();
 
     let provider: Provider<Http> = Provider::<Http>::try_from(utils::MATICURL).unwrap();
@@ -616,7 +522,6 @@ pub async fn get_nft_by_address(
     if tmp_a == utils::OWNER_ADDRESS.clone().to_string() {
         let mut res: Vec<structs::TokenLocalTmp> = Vec::new();
         for token_local in &nfts {
-            // Create structs::TokenLocalTmp with the calculated value of is_full
             let token_local_tmp = structs::TokenLocalTmp {
                 index: token_local.index,
                 count: token_local.count,
