@@ -6,45 +6,35 @@ use diesel::r2d2::{self, ConnectionManager};
 use moka::sync::Cache;
 
 mod handlers;
-mod structs;
-mod utils;
 mod models;
 mod schema;
+mod structs;
+mod utils;
 // mod lib;
-// 
+//
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv::dotenv().ok();
-    // let bgl = "https//127.0.0.1:8332";
     let cache: Cache<String, f64> = Cache::new(10_000);
-    // let clonned_cache = ca che.clone();
-    // let clonned_cache2 = cache.clone();
-    // let clonned_cache3 = cache.clone();
-    let cloned_cache = Arc::new(cache.clone());
-
-    // tokio::spawn(async move {
-    //     utils::watch(cloned_cache2).await;
-    // });
-
-    tokio::spawn(async move {
-        utils::get_owners_local(cloned_cache).await;
-    });
-
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL");
     let manager = ConnectionManager::<PgConnection>::new(database_url);
+
     let pool: r2d2::Pool<ConnectionManager<PgConnection>> = r2d2::Pool::builder()
         .test_on_check_out(true)
         .build(manager)
         .expect("Could not build connection pool");
+    let cloned_pool = pool.clone();
+    let cloned_cache = Arc::new(cache.clone());
 
-    // let provider: Provider<Http> = Provider::<Http>::try_from("NO").unwrap();
+    tokio::spawn(async move {
+        utils::get_owners_local(cloned_cache, cloned_pool).await;
+    });
 
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(pool.clone()))
             .app_data(web::Data::new(cache.clone()))
-            // .app_data(web::Data::new(provider.clone()))
             .route("/", web::get().to(|| async { "Actix REST API" }))
             .service(handlers::get_nfts)
             .service(handlers::get_nft_by_address)

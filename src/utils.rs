@@ -1,36 +1,28 @@
-use crate::schema::tokens::dsl::*;
-
+use crate::models::InfoLottoPoint;
 use crate::models::Token;
 use crate::schema::info_lotto::dsl::*;
+use crate::schema::tokens::dsl::*;
+use crate::structs;
 use actix_web::web;
 use diesel::pg::PgConnection;
 use diesel::r2d2::ConnectionManager;
 use diesel::{prelude::*, r2d2};
-use dotenvy::dotenv;
 use ethers::prelude::rand::seq::SliceRandom;
 use ethers::prelude::*;
 use ethers::providers::{Http, Provider};
 use moka::sync::Cache;
-// use crate::*;
+use std::collections::hash_map::DefaultHasher;
+use std::collections::HashMap;
+use std::env;
+use std::error::Error;
+use std::hash::{Hash, Hasher};
 use std::io::{BufWriter, Write};
 use std::path::Path;
-// use random_color::RandomColor;
-// use serde_json::json;
+use std::process::Command;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
-// use std::time::Duration;
-
-use crate::models::InfoLottoPoint;
-use std::collections::HashMap;
-
-use crate::structs;
-use std::collections::hash_map::DefaultHasher;
-use std::env;
-use std::error::Error;
-use std::hash::{Hash, Hasher};
-use std::process::Command;
 use tokio::task;
 
 pub const MATICURL: &str = "https://polygon-rpc.com";
@@ -101,13 +93,6 @@ pub async fn get_counts_local(
         }
     }
     balance
-}
-
-pub async fn establish_connection() -> PgConnection {
-    dotenv().ok();
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    PgConnection::establish(&database_url)
-        .unwrap_or_else(|_| panic!("Error connecting to {}", database_url))
 }
 
 pub async fn make_nft_array(connection: &mut PgConnection) -> Vec<structs::TokenLocal> {
@@ -309,8 +294,11 @@ pub async fn get_winning_block(connection: &mut PgConnection) -> u128 {
     s as u128
 }
 
-pub async fn get_owners_local(cache: Arc<Cache<String, f64>>) {
-    let mut connection: &mut PgConnection = &mut establish_connection().await;
+pub async fn get_owners_local(
+    cache: Arc<Cache<String, f64>>,
+    connection: r2d2::Pool<ConnectionManager<PgConnection>>,
+) {
+    let mut connection = connection.get().unwrap();
     let tmp = CONTRACT_ADDRESS.clone().to_string();
     let own = OWNER_ADDRESS.clone().to_string();
     let contract_addr = Address::from_str(&tmp).unwrap();
