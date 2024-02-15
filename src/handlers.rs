@@ -11,7 +11,7 @@ use ethers::prelude::*;
 use ethers::providers::{Http, Provider};
 use moka::sync::Cache;
 use std::collections::HashMap;
-use std::env;
+use std::{env, fs};
 use std::str::FromStr;
 
 use std::sync::Arc;
@@ -72,7 +72,32 @@ pub async fn get_last_winners(
     if current_block >= lucky_block {
         let last_lucky_block = match cache.get("last_lucky_block") {
             Some(x) => x as i64,
-            None => 0,
+            None => {
+                let dir = env::current_dir()
+                    .unwrap()
+                    .into_os_string()
+                    .into_string()
+                    .unwrap();
+                let snapshots_dir = dir + "/snapshots/";
+
+                let files = fs::read_dir(snapshots_dir)
+                    .unwrap()
+                    .map(|entry| {
+                        let entry = entry.unwrap();
+                        let file_name = entry.file_name().into_string().unwrap();
+                        file_name[..file_name.len() - 5].parse::<i64>().unwrap()
+                        // Убираем ".json" и парсим как целое число
+                    })
+                    .collect::<Vec<i64>>();
+
+                if let Some(max_file) = files.iter().max() {
+                    println!("Максимальное число: {}", max_file);
+                    max_file.to_owned()
+                } else {
+                    println!("Нет файлов в каталоге snapshots");
+                    0 as i64
+                }
+            }
         };
         if last_lucky_block != 0 {
             let dir = env::current_dir()
@@ -163,7 +188,32 @@ pub async fn get_lucky_hash(
     }
     let last_lucky_block = match cache.get("last_lucky_block") {
         Some(x) => x,
-        None => 10e99,
+        None => {
+            let dir = env::current_dir()
+                .unwrap()
+                .into_os_string()
+                .into_string()
+                .unwrap();
+            let snapshots_dir = dir + "/snapshots/";
+
+            let files = fs::read_dir(snapshots_dir)
+                .unwrap()
+                .map(|entry| {
+                    let entry = entry.unwrap();
+                    let file_name = entry.file_name().into_string().unwrap();
+                    file_name[..file_name.len() - 5].parse::<i64>().unwrap()
+                    // Убираем ".json" и парсим как целое число
+                })
+                .collect::<Vec<i64>>();
+
+            if let Some(max_file) = files.iter().max() {
+                println!("Максимальное число: {}", max_file);
+                max_file.to_owned() as f64
+            } else {
+                println!("Нет файлов в каталоге snapshots");
+                0 as f64
+            }
+        },
     };
     let last_lucky_block = u128::from(last_lucky_block as u64);
 
@@ -252,7 +302,32 @@ pub async fn get_tickets(
     if current_block >= lucky_block {
         let last_lucky_block = match cache.get("last_lucky_block") {
             Some(x) => x as i64,
-            None => 0,
+            None => {
+                let dir = env::current_dir()
+                    .unwrap()
+                    .into_os_string()
+                    .into_string()
+                    .unwrap();
+                let snapshots_dir = dir + "/snapshots/";
+
+                let files = fs::read_dir(snapshots_dir)
+                    .unwrap()
+                    .map(|entry| {
+                        let entry = entry.unwrap();
+                        let file_name = entry.file_name().into_string().unwrap();
+                        file_name[..file_name.len() - 5].parse::<i64>().unwrap()
+                        // Убираем ".json" и парсим как целое число
+                    })
+                    .collect::<Vec<i64>>();
+
+                if let Some(max_file) = files.iter().max() {
+                    println!("Максимальное число: {}", max_file);
+                    max_file.to_owned()
+                } else {
+                    println!("Нет файлов в каталоге snapshots");
+                    0 as i64
+                }
+            },
         };
         if last_lucky_block != 0 {
             let dir = env::current_dir()
@@ -333,7 +408,32 @@ pub async fn get_owners(
     if current_block >= lucky_block {
         let last_lucky_block = match cache.get("last_lucky_block") {
             Some(x) => x as i64,
-            None => 0,
+            None => {
+                let dir = env::current_dir()
+                    .unwrap()
+                    .into_os_string()
+                    .into_string()
+                    .unwrap();
+                let snapshots_dir = dir + "/snapshots/";
+
+                let files = fs::read_dir(snapshots_dir)
+                    .unwrap()
+                    .map(|entry| {
+                        let entry = entry.unwrap();
+                        let file_name = entry.file_name().into_string().unwrap();
+                        file_name[..file_name.len() - 5].parse::<i64>().unwrap()
+                        // Убираем ".json" и парсим как целое число
+                    })
+                    .collect::<Vec<i64>>();
+
+                if let Some(max_file) = files.iter().max() {
+                    println!("Максимальное число: {}", max_file);
+                    max_file.to_owned()
+                } else {
+                    println!("Нет файлов в каталоге snapshots");
+                    0 as i64
+                }
+            },
         };
         if last_lucky_block != 0 {
             let dir = env::current_dir()
